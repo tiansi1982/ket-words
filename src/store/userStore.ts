@@ -5,6 +5,7 @@ import type { UserState, WordProgress, StudyStatus } from '@/types'
 interface UserStore extends UserState {
   setDailyGoal: (goal: number) => void
   startDailySession: (wordIds: number[]) => void
+  advanceSession: () => void
   completeDailySession: () => void
   updateProgress: (wordId: number, correct: boolean) => void
   addToErrorBank: (wordId: number) => void
@@ -14,7 +15,11 @@ interface UserStore extends UserState {
 }
 
 function todayStr(): string {
-  return new Date().toISOString().slice(0, 10)
+  // Local date, not UTC — toISOString() would roll the day over at 8am in China
+  const d = new Date()
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${mm}-${dd}`
 }
 
 export const useUserStore = create<UserStore>()(
@@ -35,9 +40,21 @@ export const useUserStore = create<UserStore>()(
           currentSession: {
             date: todayStr(),
             wordIds,
+            currentIndex: 0,
             completed: false,
           },
         }),
+
+      advanceSession: () =>
+        set((state) => ({
+          currentSession: state.currentSession
+            ? {
+                ...state.currentSession,
+                // ?? 0 migrates sessions persisted before currentIndex existed
+                currentIndex: (state.currentSession.currentIndex ?? 0) + 1,
+              }
+            : null,
+        })),
 
       completeDailySession: () =>
         set((state) => ({

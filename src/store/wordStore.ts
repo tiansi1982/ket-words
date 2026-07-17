@@ -1,8 +1,10 @@
 import { create } from 'zustand'
 import type { Word } from '@/types'
 import wordData from '@/data/ket-words.json'
+import { matchesSpelling, shuffled as shuffle } from '@/lib/word-utils'
 
 const allWords: Word[] = wordData as Word[]
+const wordById = new Map(allWords.map((w) => [w.id, w]))
 
 interface WordStore {
   words: Word[]
@@ -11,24 +13,31 @@ interface WordStore {
   pickDailyWords: (masteredIds: Set<number>, goal: number) => Word[]
   // Pick words from error bank
   getErrorWords: (errorIds: number[]) => Word[]
+  // Spelling check: accepts the target word's spelling variants,
+  // plus any synonym sharing the same definition and pos (the prompt can't distinguish them)
+  checkSpelling: (input: string, target: Word) => boolean
 }
 
 export const useWordStore = create<WordStore>()(() => ({
   words: allWords,
 
-  getWord: (id) => allWords.find((w) => w.id === id),
+  getWord: (id) => wordById.get(id),
+
+  checkSpelling: (input, target) => {
+    if (matchesSpelling(input, target.word)) return true
+    return allWords.some(
+      (w) =>
+        w.id !== target.id &&
+        w.definition === target.definition &&
+        w.pos === target.pos &&
+        matchesSpelling(input, w.word)
+    )
+  },
 
   pickDailyWords: (masteredIds, goal) => {
     const baseLen = (word: string) => word.split(' ')[0].length
 
     const pool = allWords.filter((w) => !masteredIds.has(w.id))
-    const shuffle = (arr: Word[]) => {
-      for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]]
-      }
-      return arr
-    }
 
     const easy   = shuffle(pool.filter((w) => baseLen(w.word) <= 4))
     const medium = shuffle(pool.filter((w) => baseLen(w.word) >= 5 && baseLen(w.word) <= 7))
@@ -43,9 +52,9 @@ export const useWordStore = create<WordStore>()(() => ({
     const wMedium = 1 - wEasy - wHard
 
     // Target counts
-    let nEasy   = Math.round(goal * wEasy)
-    let nMedium = Math.round(goal * wMedium)
-    let nHard   = goal - nEasy - nMedium
+    const nEasy   = Math.round(goal * wEasy)
+    const nMedium = Math.round(goal * wMedium)
+    const nHard   = goal - nEasy - nMedium
 
     // Redistribute if a bucket is exhausted
     const take = (bucket: Word[], n: number): [Word[], number] => {
@@ -68,6 +77,6 @@ export const useWordStore = create<WordStore>()(() => ({
 
   getErrorWords: (errorIds) =>
     errorIds
-      .map((id) => allWords.find((w) => w.id === id))
+      .map((id) => wordById.get(id))
       .filter((w): w is Word => w !== undefined),
 }))

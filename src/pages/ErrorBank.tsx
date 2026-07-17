@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
+import { baseWord } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
 import { Volume2, ChevronLeft, Trash2 } from 'lucide-react'
 import type { Word } from '@/types'
@@ -12,9 +13,11 @@ type Phase = 'quiz' | 'result'
 export default function ErrorBank() {
   const navigate = useNavigate()
   const { errorBank, updateProgress, removeFromErrorBank } = useUserStore()
-  const { getErrorWords } = useWordStore()
+  const { getErrorWords, checkSpelling } = useWordStore()
 
-  const words: Word[] = getErrorWords(errorBank)
+  // Snapshot at mount: answering correctly removes words from errorBank in the
+  // store, and a live-derived list would shift under the current index
+  const [words] = useState<Word[]>(() => getErrorWords(errorBank))
   const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>('quiz')
   const [input, setInput] = useState('')
@@ -47,12 +50,12 @@ export default function ErrorBank() {
 
   const handleSubmit = () => {
     if (!currentWord) return
-    const correct = input.trim().toLowerCase() === currentWord.word.toLowerCase()
+    const correct = checkSpelling(input, currentWord)
     setLastCorrect(correct)
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (correct) removeFromErrorBank(currentWord.id)
-    tts.speak(currentWord.word)
+    tts.speak(baseWord(currentWord.word))
   }
 
   const handleNext = () => {
@@ -117,7 +120,7 @@ export default function ErrorBank() {
             <div className="text-4xl mb-3">{lastCorrect ? '✅' : '❌'}</div>
             <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(currentWord.word)} className="text-muted-foreground">
+              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>

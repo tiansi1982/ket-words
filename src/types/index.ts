@@ -19,8 +19,9 @@ export interface WordProgress {
 }
 
 export interface DailySession {
-  date: string // YYYY-MM-DD
+  date: string // YYYY-MM-DD (local time)
   wordIds: number[]
+  currentIndex: number // resume position within the session
   completed: boolean
 }
 

@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { speechAssessment } from '@/services/speechAssessment'
+import { baseWord } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
 import { Volume2, ChevronLeft, Mic, MicOff, Loader2 } from 'lucide-react'
 import type { Word } from '@/types'
@@ -15,10 +16,11 @@ const hasSpeech = speechAssessment.isSupported()
 
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, updateProgress, addToErrorBank, completeDailySession } = useUserStore()
-  const { getWord } = useWordStore()
+  const { currentSession, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
+  const { getWord, checkSpelling } = useWordStore()
 
-  const [index, setIndex] = useState(0)
+  // Session cursor lives in the persisted store so leaving mid-session resumes here
+  const index = currentSession?.currentIndex ?? 0
   const [phase, setPhase] = useState<Phase>('show')
   const [input, setInput] = useState('')
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
@@ -40,7 +42,7 @@ export default function Study() {
 
   useEffect(() => {
     if (currentWord && phase === 'show') {
-      tts.speak(currentWord.word)
+      tts.speak(baseWord(currentWord.word))
     }
     return () => { speechAssessment.cancel() }
   }, [currentWord, phase])
@@ -51,7 +53,7 @@ export default function Study() {
     setSpeakTranscript('')
     tts.stop()
     try {
-      const result = await speechAssessment.assess(currentWord.word)
+      const result = await speechAssessment.assess(baseWord(currentWord.word))
       setSpeakTranscript(result.transcript)
       setSpeakScore(result.score)
       setSpeakPassed(result.passed)
@@ -70,16 +72,16 @@ export default function Study() {
 
   const handleSubmit = () => {
     if (!currentWord) return
-    const correct = input.trim().toLowerCase() === currentWord.word.toLowerCase()
+    const correct = checkSpelling(input, currentWord)
     setLastCorrect(correct)
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (!correct) addToErrorBank(currentWord.id)
-    tts.speak(currentWord.word)
+    tts.speak(baseWord(currentWord.word))
   }
 
   const handleNext = () => {
-    setIndex((i) => i + 1)
+    advanceSession()
     setPhase('show')
     setInput('')
     setLastCorrect(null)
@@ -134,7 +136,7 @@ export default function Study() {
           <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-center gap-3 mb-1">
               <span className="text-4xl font-bold tracking-tight">{currentWord.word}</span>
-              <button onClick={() => tts.speak(currentWord.word)} className="text-muted-foreground hover:text-primary transition-colors">
+              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary transition-colors">
                 <Volume2 className="h-6 w-6" />
               </button>
             </div>
@@ -162,7 +164,7 @@ export default function Study() {
             <p className="text-muted-foreground text-sm">跟读这个单词</p>
             <div className="flex items-center justify-center gap-3">
               <span className="text-4xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(currentWord.word)} className="text-muted-foreground hover:text-primary">
+              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>
@@ -258,7 +260,7 @@ export default function Study() {
             <div className="text-5xl">{lastCorrect ? '✅' : '❌'}</div>
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className="text-3xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(currentWord.word)} className="text-muted-foreground hover:text-primary">
+              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
+import { baseWord, shuffled } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
 import { ChevronLeft, Volume2, RotateCcw } from 'lucide-react'
 import type { Word } from '@/types'
@@ -10,9 +11,25 @@ import type { Word } from '@/types'
 const BATCH = 10
 
 function buildOptions(correct: Word, pool: Word[]): Word[] {
-  const others = pool.filter((w) => w.id !== correct.id)
-  const shuffled = others.sort(() => Math.random() - 0.5).slice(0, 3)
-  return [...shuffled, correct].sort(() => Math.random() - 0.5)
+  // Exclude synonyms (same definition would make two options correct) and
+  // entries with the same spelling (would render two identical buttons)
+  const correctBase = baseWord(correct.word).toLowerCase()
+  const candidates = pool.filter(
+    (w) =>
+      w.id !== correct.id &&
+      w.definition !== correct.definition &&
+      baseWord(w.word).toLowerCase() !== correctBase
+  )
+  const distractors: Word[] = []
+  const usedText = new Set([correctBase])
+  for (const w of shuffled(candidates)) {
+    const text = baseWord(w.word).toLowerCase()
+    if (usedText.has(text)) continue
+    usedText.add(text)
+    distractors.push(w)
+    if (distractors.length === 3) break
+  }
+  return shuffled([...distractors, correct])
 }
 
 export default function Practice() {
@@ -29,7 +46,7 @@ export default function Practice() {
     )
     const pool = words.filter((w) => !masteredIds.has(w.id))
     const source = pool.length >= BATCH ? pool : words
-    return source.sort(() => Math.random() - 0.5).slice(0, BATCH)
+    return shuffled(source).slice(0, BATCH)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [index, setIndex] = useState(0)
@@ -54,7 +71,7 @@ export default function Practice() {
       updateProgress(current.id, false)
       addToErrorBank(current.id)
     }
-    tts.speak(current.word)
+    tts.speak(baseWord(current.word))
   }
 
   const handleNext = () => {
@@ -140,7 +157,7 @@ export default function Practice() {
           <div className="mt-4 pt-4 border-t flex items-center justify-center gap-2">
             <span className="text-2xl font-bold">{current.word}</span>
             <button
-              onClick={() => tts.speak(current.word)}
+              onClick={() => tts.speak(baseWord(current.word))}
               className="text-muted-foreground hover:text-primary"
             >
               <Volume2 className="h-5 w-5" />
