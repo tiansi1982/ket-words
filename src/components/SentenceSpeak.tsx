@@ -2,8 +2,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { tts } from '@/services/tts'
 import { speechAssessment } from '@/services/speechAssessment'
 import { baseWord } from '@/lib/word-utils'
+import ProgressBar from '@/components/ProgressBar'
+import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { Volume2, Mic, MicOff, Loader2 } from 'lucide-react'
+import { Mic, MicOff, Loader2 } from 'lucide-react'
 import type { Word } from '@/types'
 
 type SpeakState = 'idle' | 'listening' | 'done'
@@ -62,29 +64,28 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
   }, [word, state])
 
   return (
-    <div className="flex flex-col gap-5 flex-1">
-      <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center gap-4">
-        <p className="text-muted-foreground text-sm">跟读这个句子</p>
+    <div className="flex flex-col gap-5 flex-1 animate-fade-up">
+      <div className="glass-card flex w-full flex-1 flex-col justify-center gap-4 rounded-[2rem] p-8 text-center">
+        <p className="text-sm font-medium text-muted-foreground">跟读这个句子</p>
         <div className="flex items-center justify-center gap-3">
-          <span className="text-2xl font-bold">{word.word}</span>
-          <button onClick={() => speakWordAndExample(word)} className="text-muted-foreground hover:text-primary">
-            <Volume2 className="h-5 w-5" />
-          </button>
+          <span className="text-3xl font-extrabold tracking-tight">{word.word}</span>
+          <SpeakButton onClick={() => speakWordAndExample(word)} />
         </div>
-        {word.ipa && <p className="text-sm text-muted-foreground font-mono -mt-2">{word.ipa}</p>}
-        <p className="text-xl leading-relaxed">
+        {word.ipa && <p className="-mt-2 font-mono text-sm text-muted-foreground">{word.ipa}</p>}
+        <p className="text-xl leading-relaxed font-medium">
           <ExampleSentence word={word.word} example={word.example} />
         </p>
-        <p className="text-xs text-muted-foreground">{word.example_cn}</p>
+        <p className="text-xs text-muted-foreground/80">{word.example_cn}</p>
 
         {/* Mic button */}
         <button
           onClick={handleSpeak}
           disabled={state === 'listening'}
-          className={`mx-auto mt-4 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-md ${
+          aria-label="开始录音"
+          className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 ${
             state === 'listening'
-              ? 'bg-red-500 text-white animate-pulse scale-110'
-              : 'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
+              ? 'bg-red-500 text-white scale-110 animate-mic-ring'
+              : 'btn-hero text-white hover:scale-105 active:scale-95'
           }`}
         >
           {state === 'listening'
@@ -101,28 +102,31 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
           )}
         </p>
         {state === 'done' && (
-          <div className="flex items-center justify-center gap-2">
-            <div className="flex-1 bg-muted rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all ${score >= 70 ? 'bg-green-500' : 'bg-yellow-500'}`}
-                style={{ width: `${score}%` }}
-              />
-            </div>
-            <span className="text-sm font-medium w-12 text-right">{score}分</span>
+          <div className="flex items-center justify-center gap-3 animate-fade-up">
+            <ProgressBar
+              value={score}
+              className="h-2 flex-1"
+              barClassName={`duration-700 ${
+                score >= 70
+                  ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                  : 'bg-gradient-to-r from-amber-400 to-yellow-500'
+              }`}
+            />
+            <span className="w-12 text-right text-sm font-bold tabular-nums">{score}分</span>
           </div>
         )}
       </div>
 
       <div className="flex gap-3">
         {state === 'done' && (
-          <Button variant="outline" className="flex-1 h-12 rounded-2xl" onClick={handleSpeak}>
-            <Mic className="h-4 w-4 mr-1" /> 再试一次
+          <Button variant="glass" className="h-13 flex-1 gap-1.5" onClick={handleSpeak}>
+            <Mic className="h-4 w-4" /> 再试一次
           </Button>
         )}
-        <Button className="flex-1 h-12 rounded-2xl" onClick={onContinue}>
+        <Button variant="hero" className="h-13 flex-1 gap-1.5" onClick={onContinue}>
           {state === 'done' ? continueLabel : (
             <>
-              <MicOff className="h-4 w-4 mr-1" /> {skipLabel}
+              <MicOff className="h-4 w-4" /> {skipLabel}
             </>
           )}
         </Button>

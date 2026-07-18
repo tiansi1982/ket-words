@@ -4,8 +4,11 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { baseWord, shuffled } from '@/lib/word-utils'
+import PageHeader from '@/components/PageHeader'
+import ProgressBar from '@/components/ProgressBar'
+import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { ChevronLeft, Volume2, RotateCcw } from 'lucide-react'
+import { RotateCcw } from 'lucide-react'
 import type { Word } from '@/types'
 
 const BATCH = 10
@@ -97,10 +100,12 @@ export default function Practice() {
 
   if (practiceWords.length === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">没有可练习的单词</p>
-          <Button onClick={() => navigate('/')}>返回首页</Button>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
+          <p className="text-muted-foreground font-medium">没有可练习的单词</p>
+          <Button variant="hero" className="h-11 px-8" onClick={() => navigate('/')}>
+            返回首页
+          </Button>
         </div>
       </div>
     )
@@ -110,24 +115,29 @@ export default function Practice() {
     const pct = Math.round((score / practiceWords.length) * 100)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-        <div className="text-6xl">{pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '💪'}</div>
-        <h2 className="text-2xl font-bold">练习结束！</h2>
-        <p className="text-muted-foreground text-lg">
-          {practiceWords.length} 题中答对 <span className="font-bold text-foreground">{score}</span> 题
+        <div className="text-7xl animate-pop-in">{pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '💪'}</div>
+        <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">练习结束！</h2>
+        <p className="text-muted-foreground text-lg animate-fade-up [animation-delay:80ms]">
+          {practiceWords.length} 题中答对 <span className="font-bold text-foreground tabular-nums">{score}</span> 题
         </p>
-        <div className="w-full max-w-xs bg-muted rounded-full h-4">
-          <div
-            className={`h-4 rounded-full transition-all ${pct >= 80 ? 'bg-green-500' : pct >= 60 ? 'bg-yellow-500' : 'bg-primary'}`}
-            style={{ width: `${pct}%` }}
-          />
-        </div>
-        <p className="text-3xl font-bold">{pct}%</p>
-        <div className="flex gap-3 mt-2">
-          <Button variant="outline" className="h-12 rounded-2xl px-6" onClick={() => navigate('/')}>
+        <ProgressBar
+          value={pct}
+          className="h-3 max-w-xs animate-fade-up [animation-delay:140ms]"
+          barClassName={`duration-700 ${
+            pct >= 80
+              ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+              : pct >= 60
+                ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                : 'progress-gradient'
+          }`}
+        />
+        <p className="text-4xl font-extrabold tracking-tight tabular-nums text-gradient">{pct}%</p>
+        <div className="mt-2 flex gap-3 animate-fade-up [animation-delay:200ms]">
+          <Button variant="glass" className="h-12 px-7" onClick={() => navigate('/')}>
             返回首页
           </Button>
-          <Button className="h-12 rounded-2xl px-6" onClick={restart}>
-            <RotateCcw className="h-4 w-4 mr-2" /> 再练一组
+          <Button variant="hero" className="h-12 gap-2 px-7" onClick={restart}>
+            <RotateCcw className="h-4 w-4" /> 再练一组
           </Button>
         </div>
       </div>
@@ -138,58 +148,40 @@ export default function Practice() {
   const correct = answered && selected === current.id
 
   return (
-    <div className="min-h-screen flex flex-col px-4 py-6 max-w-lg mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <span className="text-sm text-muted-foreground font-medium">
-          {index + 1} / {practiceWords.length}
-        </span>
-        <div className="w-10" />
-      </div>
-
-      {/* Progress */}
-      <div className="w-full bg-muted rounded-full h-2 mb-6">
-        <div
-          className="bg-primary h-2 rounded-full transition-all duration-500"
-          style={{ width: `${(index / practiceWords.length) * 100}%` }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
+      <PageHeader counter={`${index + 1} / ${practiceWords.length}`} />
+      <ProgressBar value={(index / practiceWords.length) * 100} className="mb-7 h-1.5" />
 
       {/* Question card */}
-      <div className="bg-card border rounded-3xl p-6 mb-5 shadow-sm">
-        <p className="text-xs text-muted-foreground mb-1">{current.pos_cn}</p>
-        <p className="text-xl font-bold mb-4">{current.definition}</p>
-        <p className="text-sm text-muted-foreground italic leading-relaxed">{current.example_cn}</p>
+      <div className="glass-card mb-5 rounded-[2rem] p-7 animate-fade-up">
+        <p className="mb-1 text-xs font-medium text-muted-foreground">{current.pos_cn}</p>
+        <p className="mb-4 text-2xl font-extrabold tracking-tight">{current.definition}</p>
+        <p className="text-sm leading-relaxed text-muted-foreground italic">{current.example_cn}</p>
 
         {/* Show word + TTS after answering */}
         {answered && (
-          <div className="mt-4 pt-4 border-t flex items-center justify-center gap-2">
-            <span className="text-2xl font-bold">{current.word}</span>
-            <button
-              onClick={() => tts.speak(baseWord(current.word))}
-              className="text-muted-foreground hover:text-primary"
-            >
-              <Volume2 className="h-5 w-5" />
-            </button>
+          <div className="mt-5 flex items-center justify-center gap-2.5 border-t border-border/70 pt-5 animate-fade-up">
+            <span className="text-3xl font-extrabold tracking-tight text-gradient">{current.word}</span>
+            <SpeakButton onClick={() => tts.speak(baseWord(current.word))} label="朗读单词" />
           </div>
         )}
       </div>
 
       {/* Options */}
-      <div className="grid grid-cols-2 gap-3 mb-5">
+      <div className="mb-5 grid grid-cols-2 gap-3">
         {options.map((opt) => {
-          let cls = 'border rounded-2xl p-4 text-center font-medium text-base transition-all '
+          // No standalone backdrop-blur here: glass-card already supplies the blur,
+          // and four simultaneously blurred tiles are expensive on low-end tablets
+          let cls = 'rounded-2xl border p-4 text-center text-base font-semibold transition-all duration-200 '
           if (!answered) {
-            cls += 'bg-card hover:bg-muted hover:border-primary cursor-pointer'
+            cls +=
+              'glass-card cursor-pointer hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg active:scale-[0.97]'
           } else if (opt.id === current.id) {
-            cls += 'bg-green-100 border-green-400 dark:bg-green-950/30 dark:border-green-600'
+            cls += 'border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-300 animate-pop-in'
           } else if (opt.id === selected) {
-            cls += 'bg-red-100 border-red-400 dark:bg-red-950/30 dark:border-red-600'
+            cls += 'border-red-500/40 bg-red-500/15 text-red-600 dark:text-red-300 animate-pop-in'
           } else {
-            cls += 'bg-muted/50 border-border opacity-60'
+            cls += 'border-border/60 bg-muted/40 text-muted-foreground opacity-60'
           }
 
           return (
@@ -202,11 +194,11 @@ export default function Practice() {
 
       {/* Feedback + next */}
       {answered && (
-        <div className="flex flex-col gap-3">
-          <p className={`text-center font-medium ${correct ? 'text-green-600' : 'text-red-500'}`}>
+        <div className="flex flex-col gap-3 animate-fade-up">
+          <p className={`text-center font-semibold ${correct ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
             {correct ? '✅ 回答正确！' : `❌ 正确答案是 "${current.word}"`}
           </p>
-          <Button className="w-full h-14 text-base rounded-2xl" onClick={handleNext}>
+          <Button variant="hero" className="h-14 w-full text-base" onClick={handleNext}>
             {index + 1 < practiceWords.length ? '下一题 →' : '查看成绩 🎉'}
           </Button>
         </div>

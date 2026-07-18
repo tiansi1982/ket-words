@@ -4,9 +4,11 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { speechAssessment } from '@/services/speechAssessment'
 import { spellingHint } from '@/lib/word-utils'
-import { Button } from '@/components/ui/button'
 import SentenceSpeak, { ExampleSentence, speakWordAndExample } from '@/components/SentenceSpeak'
-import { Volume2, ChevronLeft } from 'lucide-react'
+import PageHeader from '@/components/PageHeader'
+import ProgressBar from '@/components/ProgressBar'
+import SpeakButton from '@/components/SpeakButton'
+import { Button } from '@/components/ui/button'
 import type { Word } from '@/types'
 
 type Phase = 'show' | 'speak' | 'quiz' | 'result'
@@ -63,10 +65,12 @@ export default function Study() {
 
   if (!currentSession || total === 0) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="text-center">
-          <p className="text-muted-foreground mb-4">没有学习内容</p>
-          <Button onClick={() => navigate('/')}>返回首页</Button>
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
+          <p className="text-muted-foreground font-medium">没有学习内容</p>
+          <Button variant="hero" className="h-11 px-7" onClick={() => navigate('/')}>
+            返回首页
+          </Button>
         </div>
       </div>
     )
@@ -75,60 +79,47 @@ export default function Study() {
   if (finished) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-        <div className="text-6xl">🎉</div>
-        <h2 className="text-2xl font-bold">今日学习完成！</h2>
-        <p className="text-muted-foreground">共学习了 {total} 个单词</p>
-        <Button className="rounded-2xl h-12 px-8" onClick={() => navigate('/')}>返回首页</Button>
+        <div className="text-7xl animate-pop-in">🎉</div>
+        <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">今日学习完成！</h2>
+        <p className="text-muted-foreground animate-fade-up [animation-delay:80ms]">共学习了 {total} 个单词</p>
+        <Button
+          variant="hero"
+          className="mt-2 h-13 px-9 text-base animate-fade-up [animation-delay:150ms]"
+          onClick={() => navigate('/')}
+        >
+          返回首页
+        </Button>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen flex flex-col px-4 py-6 max-w-lg mx-auto">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
-          <ChevronLeft className="h-5 w-5" />
-        </Button>
-        <span className="text-sm text-muted-foreground font-medium">{index + 1} / {total}</span>
-        <div className="w-10" />
-      </div>
-
-      {/* Progress bar */}
-      <div className="w-full bg-muted rounded-full h-2 mb-6">
-        <div
-          className="bg-primary h-2 rounded-full transition-all duration-500"
-          style={{ width: `${(index / total) * 100}%` }}
-        />
-      </div>
+    <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
+      <PageHeader counter={`${index + 1} / ${total}`} />
+      <ProgressBar value={(index / total) * 100} className="mb-7 h-1.5" />
 
       {/* ── PHASE: show ── */}
       {phase === 'show' && currentWord && (
-        <div className="flex flex-col gap-5 flex-1">
-          <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center">
-            <div className="flex items-center justify-center gap-3 mb-1">
-              <span className="text-4xl font-bold tracking-tight">{currentWord.word}</span>
-              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary transition-colors">
-                <Volume2 className="h-6 w-6" />
-              </button>
+        <div className="flex flex-col gap-5 flex-1 animate-fade-up">
+          <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
+            <div className="mb-2 flex items-center justify-center gap-3">
+              <span className="text-[2.75rem] leading-tight font-extrabold tracking-tight">{currentWord.word}</span>
+              <SpeakButton onClick={() => speakWordAndExample(currentWord)} className="h-10 w-10" iconClassName="h-5 w-5" />
             </div>
-            <span className="text-sm text-muted-foreground">
-              {currentWord.ipa && <span className="font-mono mr-2">{currentWord.ipa}</span>}
-              {currentWord.pos_cn}
-            </span>
-            <div className="mt-6 pt-6 border-t text-left">
-              <p className="text-xl font-semibold text-center">{currentWord.definition}</p>
-              <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">
+            <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+              {currentWord.ipa && <span className="font-mono">{currentWord.ipa}</span>}
+              <span className="glass-chip rounded-full px-2.5 py-0.5 text-xs font-medium">{currentWord.pos_cn}</span>
+            </div>
+            <div className="mt-7 border-t border-border/70 pt-7 text-left">
+              <p className="text-center text-2xl font-bold tracking-tight">{currentWord.definition}</p>
+              <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground italic">
                 <ExampleSentence word={currentWord.word} example={currentWord.example} />
               </p>
-              <p className="mt-1 text-xs text-muted-foreground">{currentWord.example_cn}</p>
+              <p className="mt-1.5 text-xs text-muted-foreground/80">{currentWord.example_cn}</p>
             </div>
           </div>
 
-          <Button
-            className="w-full h-14 text-base rounded-2xl"
-            onClick={() => hasSpeech ? setPhase('speak') : goToQuiz()}
-          >
+          <Button variant="hero" className="h-14 w-full text-base" onClick={() => (hasSpeech ? setPhase('speak') : goToQuiz())}>
             {hasSpeech ? '练习发音 →' : '开始拼写 →'}
           </Button>
         </div>
@@ -147,31 +138,31 @@ export default function Study() {
 
       {/* ── PHASE: quiz ── */}
       {phase === 'quiz' && currentWord && (
-        <div className="flex flex-col gap-5 flex-1">
-          <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center">
-            <p className="text-muted-foreground text-sm mb-2">{currentWord.pos_cn}</p>
-            <p className="text-2xl font-bold">{currentWord.definition}</p>
-            <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">{currentWord.example_cn}</p>
+        <div className="flex flex-col gap-5 flex-1 animate-fade-up">
+          <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
+            <p className="mb-2 text-sm text-muted-foreground">{currentWord.pos_cn}</p>
+            <p className="text-3xl font-extrabold tracking-tight">{currentWord.definition}</p>
+            <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground italic">{currentWord.example_cn}</p>
             {(progress[currentWord.id]?.consecutiveWrong ?? 0) >= 2 && (
-              <p className="mt-4 text-sm text-orange-500 font-mono tracking-widest">
+              <p className="glass-chip mx-auto mt-5 rounded-full px-4 py-1.5 text-sm font-medium font-mono tracking-widest text-orange-500">
                 💡 {spellingHint(currentWord.word)}
               </p>
             )}
           </div>
 
           <div className="w-full">
-            <label className="text-sm text-muted-foreground mb-2 block text-center">请拼写这个单词</label>
+            <label className="mb-2.5 block text-center text-sm font-medium text-muted-foreground">请拼写这个单词</label>
             <input
               autoFocus
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && input.trim() && handleSubmit()}
               placeholder="输入英文单词..."
-              className="w-full border rounded-2xl px-4 py-4 text-xl text-center bg-background outline-none focus:ring-2 focus:ring-primary font-mono tracking-widest"
+              className="glass-card h-16 w-full rounded-2xl px-4 text-center text-2xl font-medium font-mono tracking-widest outline-none transition-shadow placeholder:text-muted-foreground/50 focus:ring-3 focus:ring-primary/40"
             />
           </div>
 
-          <Button className="w-full h-14 text-base rounded-2xl" disabled={!input.trim()} onClick={handleSubmit}>
+          <Button variant="hero" className="h-14 w-full text-base" disabled={!input.trim()} onClick={handleSubmit}>
             提交答案
           </Button>
         </div>
@@ -179,37 +170,35 @@ export default function Study() {
 
       {/* ── PHASE: result ── */}
       {phase === 'result' && currentWord && (
-        <div className="flex flex-col gap-5 flex-1">
-          <div className={`border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center gap-3 ${
-            lastCorrect
-              ? 'bg-green-50 border-green-200 dark:bg-green-950/20 dark:border-green-800'
-              : 'bg-red-50 border-red-200 dark:bg-red-950/20 dark:border-red-800'
-          }`}>
-            <div className="text-5xl">{lastCorrect ? '✅' : '❌'}</div>
-            <div className="flex items-center justify-center gap-2 mt-2">
-              <span className="text-3xl font-bold">{currentWord.word}</span>
-              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary">
-                <Volume2 className="h-5 w-5" />
-              </button>
+        <div className="flex flex-col gap-5 flex-1 animate-fade-up">
+          <div
+            className={`flex w-full flex-1 flex-col justify-center gap-3 rounded-[2rem] border p-8 text-center backdrop-blur-xl ${
+              lastCorrect
+                ? 'border-green-500/30 bg-green-500/10 shadow-[0_12px_32px_-12px_rgb(34_197_94/0.25)]'
+                : 'border-red-500/30 bg-red-500/10 shadow-[0_12px_32px_-12px_rgb(239_68_68/0.25)]'
+            }`}
+          >
+            <div className="text-6xl animate-pop-in">{lastCorrect ? '✅' : '❌'}</div>
+            <div className="mt-2 flex items-center justify-center gap-2.5">
+              <span className="text-4xl font-extrabold tracking-tight">{currentWord.word}</span>
+              <SpeakButton onClick={() => speakWordAndExample(currentWord)} />
             </div>
-            {currentWord.ipa && (
-              <p className="text-sm text-muted-foreground font-mono">{currentWord.ipa}</p>
-            )}
+            {currentWord.ipa && <p className="font-mono text-sm text-muted-foreground">{currentWord.ipa}</p>}
             {!lastCorrect && (
               <p className="text-sm text-muted-foreground">
-                你输入的是：<span className="text-destructive font-mono">{input}</span>
+                你输入的是：<span className="font-mono font-semibold text-destructive">{input}</span>
               </p>
             )}
-            <div className="mt-4 pt-4 border-t border-current/10 text-left">
-              <p className="text-sm font-medium text-center mb-2">{currentWord.definition}</p>
-              <p className="text-xs italic text-muted-foreground leading-relaxed">
+            <div className="mt-4 border-t border-current/10 pt-4 text-left">
+              <p className="mb-2 text-center text-sm font-semibold">{currentWord.definition}</p>
+              <p className="text-xs leading-relaxed text-muted-foreground italic">
                 <ExampleSentence word={currentWord.word} example={currentWord.example} />
               </p>
-              <p className="text-xs text-muted-foreground mt-1">{currentWord.example_cn}</p>
+              <p className="mt-1 text-xs text-muted-foreground/80">{currentWord.example_cn}</p>
             </div>
           </div>
 
-          <Button className="w-full h-14 text-base rounded-2xl" onClick={handleNext}>
+          <Button variant="hero" className="h-14 w-full text-base" onClick={handleNext}>
             {index + 1 < total ? '下一个 →' : '完成学习 🎉'}
           </Button>
         </div>

@@ -10,15 +10,17 @@ const Stats = lazy(() => import('@/pages/Stats'))
 const Practice = lazy(() => import('@/pages/Practice'))
 
 function Centered({ children }: { children: ReactNode }) {
-  return <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">{children}</div>
+  return <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4">{children}</div>
 }
 
 function NotFound() {
   return (
     <Centered>
-      <div className="text-5xl">🤔</div>
-      <p className="text-muted-foreground">页面不存在</p>
-      <Link to="/"><Button className="rounded-2xl">返回首页</Button></Link>
+      <div className="text-6xl animate-drift">🤔</div>
+      <p className="text-muted-foreground font-medium">页面不存在</p>
+      <Link to="/">
+        <Button variant="hero" className="h-11 px-7">返回首页</Button>
+      </Link>
     </Centered>
   )
 }
@@ -32,9 +34,13 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
     if (this.state.error) {
       return (
         <Centered>
-          <div className="text-5xl">😵</div>
-          <p className="text-muted-foreground">出了点问题，刷新一下试试</p>
-          <Button className="rounded-2xl" onClick={() => window.location.assign('/')}>
+          <div className="text-6xl animate-drift">😵</div>
+          <p className="text-muted-foreground font-medium">出了点问题，刷新一下试试</p>
+          <Button
+            variant="hero"
+            className="h-11 px-7"
+            onClick={() => window.location.assign('/')}
+          >
             回到首页
           </Button>
         </Centered>
@@ -44,7 +50,14 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
-const loading = <Centered><p className="text-muted-foreground animate-pulse">加载中...</p></Centered>
+const loading = (
+  <Centered>
+    <div className="flex flex-col items-center gap-4">
+      <div className="h-12 w-12 rounded-2xl bg-brand-gradient animate-pop-in shadow-lg shadow-primary/30" />
+      <p className="text-muted-foreground text-sm font-medium animate-pulse tracking-wide">加载中...</p>
+    </div>
+  </Centered>
+)
 
 export default function App() {
   // Wait for the word-list chunk so pages never see an empty dictionary

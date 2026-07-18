@@ -15,6 +15,7 @@ interface UserStore extends UserState {
   addToErrorBank: (wordId: number) => void
   removeFromErrorBank: (wordId: number) => void
   getWordStatus: (wordId: number) => StudyStatus
+  getMasteredIds: () => Set<number>
   getTodayDate: () => string
   // Mastered words whose review is due (most overdue first)
   getDueReviewIds: () => number[]
@@ -257,6 +258,13 @@ export const useUserStore = create<UserStore>()(
         const p = get().progress[wordId]
         return p?.status ?? 'new'
       },
+
+      getMasteredIds: () =>
+        new Set(
+          Object.values(get().progress)
+            .filter((p) => p.status === 'mastered')
+            .map((p) => p.wordId)
+        ),
 
       getDueReviewIds: () => {
         const today = todayStr()
