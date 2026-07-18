@@ -3,6 +3,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { shuffled } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
+import ProfileSwitcher from '@/components/ProfileSwitcher'
 import { BookOpen, Zap, BarChart2, Brain } from 'lucide-react'
 
 export default function Home() {
@@ -42,6 +43,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center px-4 py-12 gap-8">
+      <ProfileSwitcher />
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight mb-2">KET 单词</h1>
         <p className="text-muted-foreground text-lg">每天学一点，英语进步快</p>

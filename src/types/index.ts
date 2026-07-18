@@ -31,10 +31,23 @@ export interface DailySession {
   completed: boolean
 }
 
-export interface UserState {
-  userId: string | null
+export interface ProfileMeta {
+  id: string
+  name: string
+}
+
+// Per-profile learning data. The active profile's copy lives at the top level
+// of UserState (so pages read it directly); inactive profiles' copies are
+// stashed in profileData and swapped in on switch.
+export interface ProfileData {
   dailyGoal: number // words per day, default 20
   currentSession: DailySession | null
   progress: Record<number, WordProgress>
   errorBank: number[] // wordIds in error bank
+}
+
+export interface UserState extends ProfileData {
+  activeProfileId: string
+  profileList: ProfileMeta[]
+  profileData: Record<string, ProfileData> // keyed by profile id, active profile excluded
 }

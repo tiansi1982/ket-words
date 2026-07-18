@@ -1,8 +1,12 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData } from '@/types'
 
 interface UserStore extends UserState {
+  addProfile: (name: string) => void
+  switchProfile: (id: string) => void
+  renameProfile: (id: string, name: string) => void
+  deleteProfile: (id: string) => void
   setDailyGoal: (goal: number) => void
   startDailySession: (wordIds: number[]) => void
   advanceSession: () => void
@@ -45,16 +49,96 @@ function isDue(p: WordProgress, today: string): boolean {
   )
 }
 
+function genId(): string {
+  return typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `p-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+const emptyProfileData = (): ProfileData => ({
+  dailyGoal: 20,
+  currentSession: null,
+  progress: {},
+  errorBank: [],
+})
+
+// The active profile's data as stored top-level in state
+function snapshot(s: UserState): ProfileData {
+  return {
+    dailyGoal: s.dailyGoal,
+    currentSession: s.currentSession,
+    progress: s.progress,
+    errorBank: s.errorBank,
+  }
+}
+
+const initialProfileId = genId()
+
 export const useUserStore = create<UserStore>()(
   persist(
     (set, get) => ({
-      userId: null,
+      activeProfileId: initialProfileId,
+      profileList: [{ id: initialProfileId, name: '孩子 1' }],
+      profileData: {},
       dailyGoal: 20,
       currentSession: null,
       progress: {},
       errorBank: [],
 
       getTodayDate: () => todayStr(),
+
+      addProfile: (name) =>
+        set((state) => {
+          const id = genId()
+          return {
+            // stash the current active profile's data, start the new one fresh
+            profileData: { ...state.profileData, [state.activeProfileId]: snapshot(state) },
+            profileList: [
+              ...state.profileList,
+              { id, name: name.trim() || `孩子 ${state.profileList.length + 1}` },
+            ],
+            activeProfileId: id,
+            ...emptyProfileData(),
+          }
+        }),
+
+      switchProfile: (id) =>
+        set((state) => {
+          if (id === state.activeProfileId || !state.profileList.some((p) => p.id === id))
+            return state
+          const { [id]: target, ...rest } = state.profileData
+          return {
+            profileData: { ...rest, [state.activeProfileId]: snapshot(state) },
+            activeProfileId: id,
+            ...(target ?? emptyProfileData()),
+          }
+        }),
+
+      renameProfile: (id, name) =>
+        set((state) => ({
+          profileList: state.profileList.map((p) =>
+            p.id === id ? { ...p, name: name.trim() || p.name } : p
+          ),
+        })),
+
+      deleteProfile: (id) =>
+        set((state) => {
+          if (state.profileList.length <= 1) return state
+          const profileList = state.profileList.filter((p) => p.id !== id)
+          if (id !== state.activeProfileId) {
+            const { [id]: _removed, ...profileData } = state.profileData
+            return { profileList, profileData }
+          }
+          // deleting the active profile: activate the first remaining one
+          const nextId = profileList[0].id
+          const { [nextId]: next, [id]: _removed, ...profileData } = state.profileData
+          return {
+            profileList,
+            profileData,
+            activeProfileId: nextId,
+            ...(next ?? emptyProfileData()),
+          }
+        }),
 
       setDailyGoal: (goal) => set({ dailyGoal: goal }),
 
@@ -164,6 +248,22 @@ export const useUserStore = create<UserStore>()(
           .map((p) => p.wordId)
       },
     }),
-    { name: 'ket-words-user' }
+    {
+      name: 'ket-words-user',
+      version: 1,
+      migrate: (persisted, version) => {
+        // v0 was single-user: wrap the existing data as the first profile
+        if (version === 0) {
+          const id = genId()
+          return {
+            ...(persisted as object),
+            activeProfileId: id,
+            profileList: [{ id, name: '孩子 1' }],
+            profileData: {},
+          } as UserState
+        }
+        return persisted as UserState
+      },
+    }
   )
 )
