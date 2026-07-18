@@ -3,16 +3,20 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
-import { baseWord } from '@/lib/word-utils'
+import { speechAssessment } from '@/services/speechAssessment'
+import { baseWord, spellingHint } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
+import SentenceSpeak from '@/components/SentenceSpeak'
 import { Volume2, ChevronLeft, Trash2 } from 'lucide-react'
 import type { Word } from '@/types'
 
-type Phase = 'quiz' | 'result'
+type Phase = 'quiz' | 'result' | 'speak'
+
+const hasSpeech = speechAssessment.isSupported()
 
 export default function ErrorBank() {
   const navigate = useNavigate()
-  const { errorBank, updateProgress, removeFromErrorBank } = useUserStore()
+  const { errorBank, progress, updateProgress, removeFromErrorBank } = useUserStore()
   const { getErrorWords, checkSpelling } = useWordStore()
 
   // Snapshot at mount: answering correctly removes words from errorBank in the
@@ -65,6 +69,16 @@ export default function ErrorBank() {
     setLastCorrect(null)
   }
 
+  // After the result, practice reading the sentence aloud (when supported)
+  const handleAfterResult = () => {
+    if (hasSpeech) {
+      tts.stop()
+      setPhase('speak')
+    } else {
+      handleNext()
+    }
+  }
+
   return (
     <div className="min-h-screen flex flex-col px-4 py-6 max-w-lg mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -88,6 +102,11 @@ export default function ErrorBank() {
             <p className="text-muted-foreground text-sm mb-1">{currentWord.pos_cn}</p>
             <p className="text-2xl font-bold">{currentWord.definition}</p>
             <p className="mt-4 text-sm text-muted-foreground italic">{currentWord.example_cn}</p>
+            {(progress[currentWord.id]?.consecutiveWrong ?? 0) >= 2 && (
+              <p className="mt-4 text-sm text-orange-500 font-mono tracking-widest">
+                💡 {spellingHint(currentWord.word)}
+              </p>
+            )}
           </div>
 
           <div className="w-full">
@@ -141,11 +160,21 @@ export default function ErrorBank() {
             >
               <Trash2 className="h-4 w-4 mr-1" /> 删除错题
             </Button>
-            <Button className="flex-1 h-12 rounded-2xl" onClick={handleNext}>
-              {index + 1 < words.length ? '下一个 →' : '完成 🎉'}
+            <Button className="flex-1 h-12 rounded-2xl" onClick={handleAfterResult}>
+              {hasSpeech ? '跟读句子 →' : index + 1 < words.length ? '下一个 →' : '完成 🎉'}
             </Button>
           </div>
         </div>
+      )}
+
+      {phase === 'speak' && currentWord && (
+        <SentenceSpeak
+          key={currentWord.id}
+          word={currentWord}
+          continueLabel={index + 1 < words.length ? '下一个 →' : '完成 🎉'}
+          skipLabel="跳过跟读"
+          onContinue={handleNext}
+        />
       )}
     </div>
   )

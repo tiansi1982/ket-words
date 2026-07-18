@@ -8,7 +8,7 @@ import { BookOpen, Zap, BarChart2, Brain } from 'lucide-react'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getDueReviewIds } = useUserStore()
+  const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getDueReviewIds, getStreak } = useUserStore()
   const { pickDailyWords } = useWordStore()
 
   const masteredIds = new Set(
@@ -16,10 +16,16 @@ export default function Home() {
       .filter((p) => p.status === 'mastered')
       .map((p) => p.wordId)
   )
+  const learningIds = new Set(
+    Object.values(progress)
+      .filter((p) => p.status === 'learning')
+      .map((p) => p.wordId)
+  )
   const totalMastered = masteredIds.size
   const totalWords = 1598
 
   const dueCount = getDueReviewIds().length
+  const streak = getStreak()
 
   const handleStartDaily = () => {
     const today = getTodayDate()
@@ -29,7 +35,7 @@ export default function Home() {
     }
     // Due reviews claim daily slots first (most overdue first), new words fill the rest
     const reviewIds = getDueReviewIds().slice(0, dailyGoal)
-    const newWords = pickDailyWords(masteredIds, dailyGoal - reviewIds.length)
+    const newWords = pickDailyWords(masteredIds, dailyGoal - reviewIds.length, learningIds)
     const wordIds = shuffled([...reviewIds, ...newWords.map((w) => w.id)])
     if (wordIds.length === 0) {
       navigate('/stats')
@@ -47,6 +53,9 @@ export default function Home() {
       <div className="text-center">
         <h1 className="text-4xl font-bold tracking-tight mb-2">KET 单词</h1>
         <p className="text-muted-foreground text-lg">每天学一点，英语进步快</p>
+        {streak > 0 && (
+          <p className="mt-2 text-sm font-medium text-orange-500">🔥 连续打卡 {streak} 天</p>
+        )}
       </div>
 
       <div className="grid grid-cols-2 gap-4 w-full max-w-sm">

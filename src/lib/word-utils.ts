@@ -25,6 +25,15 @@ export function matchesSpelling(input: string, word: string): boolean {
   return acceptedSpellings(word).some((s) => normalize(s) === n)
 }
 
+// 拼写提示：每个单词只露首字母，其余用下划线占位
+// "ice cream" → "i__ c____"
+export function spellingHint(word: string): string {
+  return baseWord(word)
+    .split(' ')
+    .map((t) => t[0] + '_'.repeat(Math.max(0, t.length - 1)))
+    .join(' ')
+}
+
 // 复制后 Fisher-Yates 打乱，不修改原数组
 export function shuffled<T>(arr: readonly T[]): T[] {
   const a = [...arr]

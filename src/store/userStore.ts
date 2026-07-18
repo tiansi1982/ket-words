@@ -18,13 +18,15 @@ interface UserStore extends UserState {
   getTodayDate: () => string
   // Mastered words whose review is due (most overdue first)
   getDueReviewIds: () => number[]
+  // Consecutive study days; today not counted against the streak until it ends
+  getStreak: () => number
 }
 
 // Ebbinghaus-style review intervals in days, indexed by srsLevel.
 // Passing the last one graduates the word (dueDate = null).
 export const SRS_INTERVALS = [1, 3, 7, 15, 30]
 
-function toDateStr(d: Date): string {
+export function toDateStr(d: Date): string {
   // Local date, not UTC — toISOString() would roll the day over at 8am in China
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
@@ -60,6 +62,7 @@ const emptyProfileData = (): ProfileData => ({
   currentSession: null,
   progress: {},
   errorBank: [],
+  dailyLog: {},
 })
 
 // The active profile's data as stored top-level in state
@@ -69,7 +72,14 @@ function snapshot(s: UserState): ProfileData {
     currentSession: s.currentSession,
     progress: s.progress,
     errorBank: s.errorBank,
+    dailyLog: s.dailyLog ?? {},
   }
+}
+
+// Stashed snapshots may predate newer ProfileData fields (e.g. dailyLog) —
+// fill the gaps so a switch never leaks the previous profile's values
+function withDefaults(data: ProfileData | undefined): ProfileData {
+  return { ...emptyProfileData(), ...data }
 }
 
 const initialProfileId = genId()
@@ -84,6 +94,7 @@ export const useUserStore = create<UserStore>()(
       currentSession: null,
       progress: {},
       errorBank: [],
+      dailyLog: {},
 
       getTodayDate: () => todayStr(),
 
@@ -110,7 +121,7 @@ export const useUserStore = create<UserStore>()(
           return {
             profileData: { ...rest, [state.activeProfileId]: snapshot(state) },
             activeProfileId: id,
-            ...(target ?? emptyProfileData()),
+            ...withDefaults(target),
           }
         }),
 
@@ -136,7 +147,7 @@ export const useUserStore = create<UserStore>()(
             profileList,
             profileData,
             activeProfileId: nextId,
-            ...(next ?? emptyProfileData()),
+            ...withDefaults(next),
           }
         }),
 
@@ -181,6 +192,7 @@ export const useUserStore = create<UserStore>()(
           }
           const correctCount = existing.correctCount + (correct ? 1 : 0)
           const wrongCount = existing.wrongCount + (correct ? 0 : 1)
+          const consecutiveWrong = correct ? 0 : (existing.consecutiveWrong ?? 0) + 1
 
           let status: StudyStatus = existing.status
           let srsLevel = existing.srsLevel ?? 0
@@ -207,13 +219,19 @@ export const useUserStore = create<UserStore>()(
                 : daysFromNowStr(SRS_INTERVALS[srsLevel])
           }
 
+          const today = todayStr()
           return {
+            dailyLog: {
+              ...(state.dailyLog ?? {}),
+              [today]: ((state.dailyLog ?? {})[today] ?? 0) + 1,
+            },
             progress: {
               ...state.progress,
               [wordId]: {
                 ...existing,
                 correctCount,
                 wrongCount,
+                consecutiveWrong,
                 status,
                 srsLevel,
                 dueDate,
@@ -246,6 +264,19 @@ export const useUserStore = create<UserStore>()(
           .filter((p) => isDue(p, today))
           .sort((a, b) => ((a.dueDate ?? '') < (b.dueDate ?? '') ? -1 : 1))
           .map((p) => p.wordId)
+      },
+
+      getStreak: () => {
+        const log = get().dailyLog ?? {}
+        const d = new Date()
+        // No study yet today: the streak from yesterday is still alive
+        if (!log[toDateStr(d)]) d.setDate(d.getDate() - 1)
+        let streak = 0
+        while ((log[toDateStr(d)] ?? 0) > 0) {
+          streak++
+          d.setDate(d.getDate() - 1)
+        }
+        return streak
       },
     }),
     {

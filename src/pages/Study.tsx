@@ -1,40 +1,21 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
-import { tts } from '@/services/tts'
 import { speechAssessment } from '@/services/speechAssessment'
-import { baseWord } from '@/lib/word-utils'
+import { spellingHint } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
-import { Volume2, ChevronLeft, Mic, MicOff, Loader2 } from 'lucide-react'
+import SentenceSpeak, { ExampleSentence, speakWordAndExample } from '@/components/SentenceSpeak'
+import { Volume2, ChevronLeft } from 'lucide-react'
 import type { Word } from '@/types'
 
 type Phase = 'show' | 'speak' | 'quiz' | 'result'
-type SpeakState = 'idle' | 'listening' | 'done'
 
 const hasSpeech = speechAssessment.isSupported()
 
-// Listening = the word followed by its example sentence
-const speakWordAndExample = (w: Word) => tts.speakAll([baseWord(w.word), w.example])
-
-// Example sentence with the target word (or its inflection, e.g. go → goes) highlighted
-function ExampleSentence({ word, example }: { word: string; example: string }) {
-  const base = baseWord(word)
-  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const m = example.match(new RegExp(`\\b${escaped}\\w*`, 'i'))
-  if (!m || m.index === undefined) return <>{example}</>
-  return (
-    <>
-      {example.slice(0, m.index)}
-      <span className="text-primary font-bold">{m[0]}</span>
-      {example.slice(m.index + m[0].length)}
-    </>
-  )
-}
-
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
+  const { currentSession, progress, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
 
   // Session cursor lives in the persisted store so leaving mid-session resumes here
@@ -42,12 +23,6 @@ export default function Study() {
   const [phase, setPhase] = useState<Phase>('show')
   const [input, setInput] = useState('')
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
-
-  // speak phase state
-  const [speakState, setSpeakState] = useState<SpeakState>('idle')
-  const [speakTranscript, setSpeakTranscript] = useState('')
-  const [speakScore, setSpeakScore] = useState(0)
-  const [speakPassed, setSpeakPassed] = useState(false)
 
   const wordIds = currentSession?.wordIds ?? []
   const currentWord: Word | undefined = getWord(wordIds[index])
@@ -62,30 +37,11 @@ export default function Study() {
     if (currentWord && phase === 'show') {
       speakWordAndExample(currentWord)
     }
-    return () => { speechAssessment.cancel() }
   }, [currentWord, phase])
-
-  const handleSpeak = useCallback(async () => {
-    if (!currentWord || speakState === 'listening') return
-    setSpeakState('listening')
-    setSpeakTranscript('')
-    tts.stop()
-    try {
-      const result = await speechAssessment.assess(currentWord.example)
-      setSpeakTranscript(result.transcript)
-      setSpeakScore(result.score)
-      setSpeakPassed(result.passed)
-      setSpeakState('done')
-    } catch {
-      setSpeakState('idle')
-    }
-  }, [currentWord, speakState])
 
   const goToQuiz = () => {
     setPhase('quiz')
     setInput('')
-    setSpeakState('idle')
-    setSpeakTranscript('')
   }
 
   const handleSubmit = () => {
@@ -103,8 +59,6 @@ export default function Study() {
     setPhase('show')
     setInput('')
     setLastCorrect(null)
-    setSpeakState('idle')
-    setSpeakTranscript('')
   }
 
   if (!currentSession || total === 0) {
@@ -158,7 +112,10 @@ export default function Study() {
                 <Volume2 className="h-6 w-6" />
               </button>
             </div>
-            <span className="text-sm text-muted-foreground">{currentWord.pos_cn}</span>
+            <span className="text-sm text-muted-foreground">
+              {currentWord.ipa && <span className="font-mono mr-2">{currentWord.ipa}</span>}
+              {currentWord.pos_cn}
+            </span>
             <div className="mt-6 pt-6 border-t text-left">
               <p className="text-xl font-semibold text-center">{currentWord.definition}</p>
               <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">
@@ -179,71 +136,13 @@ export default function Study() {
 
       {/* ── PHASE: speak ── */}
       {phase === 'speak' && currentWord && (
-        <div className="flex flex-col gap-5 flex-1">
-          <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center gap-4">
-            <p className="text-muted-foreground text-sm">跟读这个句子</p>
-            <div className="flex items-center justify-center gap-3">
-              <span className="text-2xl font-bold">{currentWord.word}</span>
-              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary">
-                <Volume2 className="h-5 w-5" />
-              </button>
-            </div>
-            <p className="text-xl leading-relaxed">
-              <ExampleSentence word={currentWord.word} example={currentWord.example} />
-            </p>
-            <p className="text-xs text-muted-foreground">{currentWord.example_cn}</p>
-
-            {/* Mic button */}
-            <button
-              onClick={handleSpeak}
-              disabled={speakState === 'listening'}
-              className={`mx-auto mt-4 w-20 h-20 rounded-full flex items-center justify-center transition-all shadow-md ${
-                speakState === 'listening'
-                  ? 'bg-red-500 text-white animate-pulse scale-110'
-                  : 'bg-primary text-primary-foreground hover:scale-105 active:scale-95'
-              }`}
-            >
-              {speakState === 'listening'
-                ? <Loader2 className="h-8 w-8 animate-spin" />
-                : <Mic className="h-8 w-8" />}
-            </button>
-            <p className="text-xs text-muted-foreground">
-              {speakState === 'idle' && '点击麦克风，读出整个句子'}
-              {speakState === 'listening' && '正在聆听...'}
-              {speakState === 'done' && (
-                speakPassed
-                  ? `✅ 读得不错！识别为 "${speakTranscript}"`
-                  : `❌ 再试试！识别为 "${speakTranscript || '未识别'}"`
-              )}
-            </p>
-            {speakState === 'done' && (
-              <div className="flex items-center justify-center gap-2">
-                <div className="flex-1 bg-muted rounded-full h-2">
-                  <div
-                    className={`h-2 rounded-full transition-all ${speakScore >= 70 ? 'bg-green-500' : 'bg-yellow-500'}`}
-                    style={{ width: `${speakScore}%` }}
-                  />
-                </div>
-                <span className="text-sm font-medium w-12 text-right">{speakScore}分</span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex gap-3">
-            {speakState === 'done' && (
-              <Button variant="outline" className="flex-1 h-12 rounded-2xl" onClick={handleSpeak}>
-                <Mic className="h-4 w-4 mr-1" /> 再试一次
-              </Button>
-            )}
-            <Button className="flex-1 h-12 rounded-2xl" onClick={goToQuiz}>
-              {speakState === 'done' ? '继续拼写 →' : (
-                <>
-                  <MicOff className="h-4 w-4 mr-1" /> 跳过发音
-                </>
-              )}
-            </Button>
-          </div>
-        </div>
+        <SentenceSpeak
+          key={currentWord.id}
+          word={currentWord}
+          continueLabel="继续拼写 →"
+          skipLabel="跳过发音"
+          onContinue={goToQuiz}
+        />
       )}
 
       {/* ── PHASE: quiz ── */}
@@ -253,6 +152,11 @@ export default function Study() {
             <p className="text-muted-foreground text-sm mb-2">{currentWord.pos_cn}</p>
             <p className="text-2xl font-bold">{currentWord.definition}</p>
             <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">{currentWord.example_cn}</p>
+            {(progress[currentWord.id]?.consecutiveWrong ?? 0) >= 2 && (
+              <p className="mt-4 text-sm text-orange-500 font-mono tracking-widest">
+                💡 {spellingHint(currentWord.word)}
+              </p>
+            )}
           </div>
 
           <div className="w-full">
@@ -288,6 +192,9 @@ export default function Study() {
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>
+            {currentWord.ipa && (
+              <p className="text-sm text-muted-foreground font-mono">{currentWord.ipa}</p>
+            )}
             {!lastCorrect && (
               <p className="text-sm text-muted-foreground">
                 你输入的是：<span className="text-destructive font-mono">{input}</span>

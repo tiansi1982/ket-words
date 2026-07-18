@@ -14,15 +14,17 @@ function buildOptions(correct: Word, pool: Word[]): Word[] {
   // Exclude synonyms (same definition would make two options correct) and
   // entries with the same spelling (would render two identical buttons)
   const correctBase = baseWord(correct.word).toLowerCase()
-  const candidates = pool.filter(
-    (w) =>
-      w.id !== correct.id &&
-      w.definition !== correct.definition &&
-      baseWord(w.word).toLowerCase() !== correctBase
-  )
+  const ok = (w: Word) =>
+    w.id !== correct.id &&
+    w.definition !== correct.definition &&
+    baseWord(w.word).toLowerCase() !== correctBase
+  // Same part of speech first — makes distractors grammatically plausible;
+  // fall back to other pos if the bucket runs dry (e.g. exclam has only 19)
+  const samePos = shuffled(pool.filter((w) => ok(w) && w.pos === correct.pos))
+  const otherPos = shuffled(pool.filter((w) => ok(w) && w.pos !== correct.pos))
   const distractors: Word[] = []
   const usedText = new Set([correctBase])
-  for (const w of shuffled(candidates)) {
+  for (const w of [...samePos, ...otherPos]) {
     const text = baseWord(w.word).toLowerCase()
     if (usedText.has(text)) continue
     usedText.add(text)

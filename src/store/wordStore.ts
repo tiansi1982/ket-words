@@ -9,8 +9,9 @@ const wordById = new Map(allWords.map((w) => [w.id, w]))
 interface WordStore {
   words: Word[]
   getWord: (id: number) => Word | undefined
-  // Pick today's study words: first N words not yet mastered
-  pickDailyWords: (masteredIds: Set<number>, goal: number) => Word[]
+  // Pick today's study words: words already being learned first, then new
+  // words by difficulty weights (due SRS reviews claim slots before this)
+  pickDailyWords: (masteredIds: Set<number>, goal: number, learningIds: Set<number>) => Word[]
   // Pick words from error bank
   getErrorWords: (errorIds: number[]) => Word[]
   // Spelling check: accepts the target word's spelling variants,
@@ -34,10 +35,14 @@ export const useWordStore = create<WordStore>()(() => ({
     )
   },
 
-  pickDailyWords: (masteredIds, goal) => {
+  pickDailyWords: (masteredIds, goal, learningIds) => {
     const baseLen = (word: string) => word.split(' ')[0].length
 
-    const pool = allWords.filter((w) => !masteredIds.has(w.id))
+    // Words already in progress come first so they don't dangle half-learned
+    const learningPicked = shuffle(allWords.filter((w) => learningIds.has(w.id))).slice(0, goal)
+    goal -= learningPicked.length
+
+    const pool = allWords.filter((w) => !masteredIds.has(w.id) && !learningIds.has(w.id))
 
     const easy   = shuffle(pool.filter((w) => baseLen(w.word) <= 4))
     const medium = shuffle(pool.filter((w) => baseLen(w.word) >= 5 && baseLen(w.word) <= 7))
@@ -70,9 +75,10 @@ export const useWordStore = create<WordStore>()(() => ({
     const mediumExtra = medium.slice(mediumPicked.length,
       mediumPicked.length + Math.max(0, leftover - easyExtra.length))
 
-    return shuffle(
-      [...easyPicked, ...mediumPicked, ...hardPicked, ...easyExtra, ...mediumExtra].slice(0, goal)
-    )
+    return shuffle([
+      ...learningPicked,
+      ...[...easyPicked, ...mediumPicked, ...hardPicked, ...easyExtra, ...mediumExtra].slice(0, goal),
+    ])
   },
 
   getErrorWords: (errorIds) =>

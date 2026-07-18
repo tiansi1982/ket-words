@@ -6,6 +6,7 @@ export interface Word {
   definition: string
   example: string
   example_cn: string
+  ipa?: string // British IPA, e.g. "/əˈbaʊt/" — absent for most phrases
 }
 
 export type StudyStatus = 'new' | 'learning' | 'mastered'
@@ -16,6 +17,8 @@ export interface WordProgress {
   correctCount: number
   wrongCount: number
   lastStudied: number // timestamp
+  // Wrong answers in a row (reset on any correct answer); ≥2 shows a spelling hint
+  consecutiveWrong?: number
   // SRS review schedule, only meaningful once status is 'mastered'.
   // srsLevel indexes SRS_INTERVALS; dueDate is YYYY-MM-DD local,
   // null = graduated (passed all review intervals, no more reviews).
@@ -44,6 +47,7 @@ export interface ProfileData {
   currentSession: DailySession | null
   progress: Record<number, WordProgress>
   errorBank: number[] // wordIds in error bank
+  dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
 }
 
 export interface UserState extends ProfileData {
