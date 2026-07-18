@@ -14,6 +14,24 @@ type SpeakState = 'idle' | 'listening' | 'done'
 
 const hasSpeech = speechAssessment.isSupported()
 
+// Listening = the word followed by its example sentence
+const speakWordAndExample = (w: Word) => tts.speakAll([baseWord(w.word), w.example])
+
+// Example sentence with the target word (or its inflection, e.g. go → goes) highlighted
+function ExampleSentence({ word, example }: { word: string; example: string }) {
+  const base = baseWord(word)
+  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const m = example.match(new RegExp(`\\b${escaped}\\w*`, 'i'))
+  if (!m || m.index === undefined) return <>{example}</>
+  return (
+    <>
+      {example.slice(0, m.index)}
+      <span className="text-primary font-bold">{m[0]}</span>
+      {example.slice(m.index + m[0].length)}
+    </>
+  )
+}
+
 export default function Study() {
   const navigate = useNavigate()
   const { currentSession, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
@@ -42,7 +60,7 @@ export default function Study() {
 
   useEffect(() => {
     if (currentWord && phase === 'show') {
-      tts.speak(baseWord(currentWord.word))
+      speakWordAndExample(currentWord)
     }
     return () => { speechAssessment.cancel() }
   }, [currentWord, phase])
@@ -53,7 +71,7 @@ export default function Study() {
     setSpeakTranscript('')
     tts.stop()
     try {
-      const result = await speechAssessment.assess(baseWord(currentWord.word))
+      const result = await speechAssessment.assess(currentWord.example)
       setSpeakTranscript(result.transcript)
       setSpeakScore(result.score)
       setSpeakPassed(result.passed)
@@ -77,7 +95,7 @@ export default function Study() {
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (!correct) addToErrorBank(currentWord.id)
-    tts.speak(baseWord(currentWord.word))
+    speakWordAndExample(currentWord)
   }
 
   const handleNext = () => {
@@ -136,14 +154,16 @@ export default function Study() {
           <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center">
             <div className="flex items-center justify-center gap-3 mb-1">
               <span className="text-4xl font-bold tracking-tight">{currentWord.word}</span>
-              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary transition-colors">
+              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary transition-colors">
                 <Volume2 className="h-6 w-6" />
               </button>
             </div>
             <span className="text-sm text-muted-foreground">{currentWord.pos_cn}</span>
             <div className="mt-6 pt-6 border-t text-left">
               <p className="text-xl font-semibold text-center">{currentWord.definition}</p>
-              <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">{currentWord.example}</p>
+              <p className="mt-5 text-muted-foreground italic text-sm leading-relaxed">
+                <ExampleSentence word={currentWord.word} example={currentWord.example} />
+              </p>
               <p className="mt-1 text-xs text-muted-foreground">{currentWord.example_cn}</p>
             </div>
           </div>
@@ -161,13 +181,17 @@ export default function Study() {
       {phase === 'speak' && currentWord && (
         <div className="flex flex-col gap-5 flex-1">
           <div className="bg-card border rounded-3xl p-8 w-full text-center shadow-sm flex-1 flex flex-col justify-center gap-4">
-            <p className="text-muted-foreground text-sm">跟读这个单词</p>
+            <p className="text-muted-foreground text-sm">跟读这个句子</p>
             <div className="flex items-center justify-center gap-3">
-              <span className="text-4xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary">
+              <span className="text-2xl font-bold">{currentWord.word}</span>
+              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>
+            <p className="text-xl leading-relaxed">
+              <ExampleSentence word={currentWord.word} example={currentWord.example} />
+            </p>
+            <p className="text-xs text-muted-foreground">{currentWord.example_cn}</p>
 
             {/* Mic button */}
             <button
@@ -184,11 +208,11 @@ export default function Study() {
                 : <Mic className="h-8 w-8" />}
             </button>
             <p className="text-xs text-muted-foreground">
-              {speakState === 'idle' && '点击麦克风开始录音'}
+              {speakState === 'idle' && '点击麦克风，读出整个句子'}
               {speakState === 'listening' && '正在聆听...'}
               {speakState === 'done' && (
                 speakPassed
-                  ? `✅ 发音不错！识别为 "${speakTranscript}"`
+                  ? `✅ 读得不错！识别为 "${speakTranscript}"`
                   : `❌ 再试试！识别为 "${speakTranscript || '未识别'}"`
               )}
             </p>
@@ -260,7 +284,7 @@ export default function Study() {
             <div className="text-5xl">{lastCorrect ? '✅' : '❌'}</div>
             <div className="flex items-center justify-center gap-2 mt-2">
               <span className="text-3xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground hover:text-primary">
+              <button onClick={() => speakWordAndExample(currentWord)} className="text-muted-foreground hover:text-primary">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>
@@ -271,7 +295,9 @@ export default function Study() {
             )}
             <div className="mt-4 pt-4 border-t border-current/10 text-left">
               <p className="text-sm font-medium text-center mb-2">{currentWord.definition}</p>
-              <p className="text-xs italic text-muted-foreground leading-relaxed">{currentWord.example}</p>
+              <p className="text-xs italic text-muted-foreground leading-relaxed">
+                <ExampleSentence word={currentWord.word} example={currentWord.example} />
+              </p>
               <p className="text-xs text-muted-foreground mt-1">{currentWord.example_cn}</p>
             </div>
           </div>

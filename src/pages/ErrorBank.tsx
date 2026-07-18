@@ -55,7 +55,7 @@ export default function ErrorBank() {
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (correct) removeFromErrorBank(currentWord.id)
-    tts.speak(baseWord(currentWord.word))
+    tts.speakAll([baseWord(currentWord.word), currentWord.example])
   }
 
   const handleNext = () => {
@@ -120,7 +120,7 @@ export default function ErrorBank() {
             <div className="text-4xl mb-3">{lastCorrect ? '✅' : '❌'}</div>
             <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-bold">{currentWord.word}</span>
-              <button onClick={() => tts.speak(baseWord(currentWord.word))} className="text-muted-foreground">
+              <button onClick={() => tts.speakAll([baseWord(currentWord.word), currentWord.example])} className="text-muted-foreground">
                 <Volume2 className="h-5 w-5" />
               </button>
             </div>

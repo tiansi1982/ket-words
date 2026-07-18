@@ -6,7 +6,8 @@ export interface AssessmentResult {
 
 export interface SpeechAssessmentService {
   isSupported(): boolean
-  assess(targetWord: string, lang?: string): Promise<AssessmentResult>
+  // target can be a single word or a whole sentence
+  assess(target: string, lang?: string): Promise<AssessmentResult>
   cancel(): void
 }
 
@@ -21,9 +22,19 @@ function getRecognitionClass(): RecognitionClass | null {
   return null
 }
 
-function similarity(a: string, b: string): number {
-  const s = a.toLowerCase().trim()
-  const t = b.toLowerCase().trim()
+// Case, punctuation and extra spaces don't count against pronunciation —
+// "I like it." must match a recognizer transcript of "i like it"
+function normalizeSpeech(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function similarity(a: string, b: string): number {
+  const s = normalizeSpeech(a)
+  const t = normalizeSpeech(b)
   if (s === t) return 100
   // Levenshtein-based similarity
   const dp = Array.from({ length: s.length + 1 }, (_, i) =>
@@ -50,7 +61,7 @@ class WebSpeechAssessment implements SpeechAssessmentService {
     return getRecognitionClass() !== null
   }
 
-  assess(targetWord: string, lang = 'en-GB'): Promise<AssessmentResult> {
+  assess(target: string, lang = 'en-GB'): Promise<AssessmentResult> {
     return new Promise((resolve, reject) => {
       const RC = getRecognitionClass()
       if (!RC) {
@@ -68,7 +79,7 @@ class WebSpeechAssessment implements SpeechAssessmentService {
         let bestScore = 0
         for (let i = 0; i < event.results[0].length; i++) {
           const t = event.results[0][i].transcript
-          const s = similarity(targetWord, t)
+          const s = similarity(target, t)
           if (s > bestScore) { bestScore = s; best = t }
         }
         resolve({ transcript: best, score: bestScore, passed: bestScore >= 70 })
