@@ -12,14 +12,37 @@ interface UserStore extends UserState {
   removeFromErrorBank: (wordId: number) => void
   getWordStatus: (wordId: number) => StudyStatus
   getTodayDate: () => string
+  // Mastered words whose review is due (most overdue first)
+  getDueReviewIds: () => number[]
 }
 
-function todayStr(): string {
+// Ebbinghaus-style review intervals in days, indexed by srsLevel.
+// Passing the last one graduates the word (dueDate = null).
+export const SRS_INTERVALS = [1, 3, 7, 15, 30]
+
+function toDateStr(d: Date): string {
   // Local date, not UTC — toISOString() would roll the day over at 8am in China
-  const d = new Date()
   const mm = String(d.getMonth() + 1).padStart(2, '0')
   const dd = String(d.getDate()).padStart(2, '0')
   return `${d.getFullYear()}-${mm}-${dd}`
+}
+
+function todayStr(): string {
+  return toDateStr(new Date())
+}
+
+function daysFromNowStr(days: number): string {
+  const d = new Date()
+  d.setDate(d.getDate() + days)
+  return toDateStr(d)
+}
+
+// Records saved before SRS existed have no dueDate → count them as due
+function isDue(p: WordProgress, today: string): boolean {
+  return (
+    p.status === 'mastered' &&
+    (p.dueDate === undefined || (p.dueDate !== null && p.dueDate <= today))
+  )
 }
 
 export const useUserStore = create<UserStore>()(
@@ -74,8 +97,32 @@ export const useUserStore = create<UserStore>()(
           }
           const correctCount = existing.correctCount + (correct ? 1 : 0)
           const wrongCount = existing.wrongCount + (correct ? 0 : 1)
-          const status: StudyStatus =
-            correctCount >= 3 ? 'mastered' : 'learning'
+
+          let status: StudyStatus = existing.status
+          let srsLevel = existing.srsLevel ?? 0
+          let dueDate = existing.dueDate
+
+          if (existing.status !== 'mastered') {
+            status = correctCount >= 3 ? 'mastered' : 'learning'
+            if (status === 'mastered') {
+              srsLevel = 0
+              dueDate = daysFromNowStr(SRS_INTERVALS[0])
+            }
+          } else if (!correct) {
+            // Forgot a mastered word: restart the review ladder from tomorrow
+            srsLevel = 0
+            dueDate = daysFromNowStr(SRS_INTERVALS[0])
+          } else if (isDue(existing, todayStr())) {
+            // Advance the schedule only when the review is actually due —
+            // an early correct answer (e.g. in multiple-choice practice)
+            // shouldn't skip ahead
+            srsLevel += 1
+            dueDate =
+              srsLevel >= SRS_INTERVALS.length
+                ? null // graduated
+                : daysFromNowStr(SRS_INTERVALS[srsLevel])
+          }
+
           return {
             progress: {
               ...state.progress,
@@ -84,6 +131,8 @@ export const useUserStore = create<UserStore>()(
                 correctCount,
                 wrongCount,
                 status,
+                srsLevel,
+                dueDate,
                 lastStudied: Date.now(),
               },
             },
@@ -105,6 +154,14 @@ export const useUserStore = create<UserStore>()(
       getWordStatus: (wordId) => {
         const p = get().progress[wordId]
         return p?.status ?? 'new'
+      },
+
+      getDueReviewIds: () => {
+        const today = todayStr()
+        return Object.values(get().progress)
+          .filter((p) => isDue(p, today))
+          .sort((a, b) => ((a.dueDate ?? '') < (b.dueDate ?? '') ? -1 : 1))
+          .map((p) => p.wordId)
       },
     }),
     { name: 'ket-words-user' }

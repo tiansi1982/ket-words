@@ -1,12 +1,13 @@
 import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
+import { shuffled } from '@/lib/word-utils'
 import { Button } from '@/components/ui/button'
 import { BookOpen, Zap, BarChart2, Brain } from 'lucide-react'
 
 export default function Home() {
   const navigate = useNavigate()
-  const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate } = useUserStore()
+  const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getDueReviewIds } = useUserStore()
   const { pickDailyWords } = useWordStore()
 
   const masteredIds = new Set(
@@ -17,18 +18,23 @@ export default function Home() {
   const totalMastered = masteredIds.size
   const totalWords = 1598
 
+  const dueCount = getDueReviewIds().length
+
   const handleStartDaily = () => {
     const today = getTodayDate()
     if (currentSession?.date === today && !currentSession.completed) {
       navigate('/study')
       return
     }
-    const words = pickDailyWords(masteredIds, dailyGoal)
-    if (words.length === 0) {
+    // Due reviews claim daily slots first (most overdue first), new words fill the rest
+    const reviewIds = getDueReviewIds().slice(0, dailyGoal)
+    const newWords = pickDailyWords(masteredIds, dailyGoal - reviewIds.length)
+    const wordIds = shuffled([...reviewIds, ...newWords.map((w) => w.id)])
+    if (wordIds.length === 0) {
       navigate('/stats')
       return
     }
-    startDailySession(words.map((w) => w.id))
+    startDailySession(wordIds)
     navigate('/study')
   }
 
@@ -102,6 +108,7 @@ export default function Home() {
 
       <p className="text-xs text-muted-foreground">
         每日目标：{dailyGoal} 个单词
+        {dueCount > 0 && <span className="text-orange-500"> · 今日待复习 {dueCount} 个</span>}
       </p>
     </div>
   )

@@ -16,6 +16,12 @@ export interface WordProgress {
   correctCount: number
   wrongCount: number
   lastStudied: number // timestamp
+  // SRS review schedule, only meaningful once status is 'mastered'.
+  // srsLevel indexes SRS_INTERVALS; dueDate is YYYY-MM-DD local,
+  // null = graduated (passed all review intervals, no more reviews).
+  // Both absent on records saved before SRS existed → treated as due today.
+  srsLevel?: number
+  dueDate?: string | null
 }
 
 export interface DailySession {

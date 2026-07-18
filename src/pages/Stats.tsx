@@ -5,11 +5,13 @@ import { ChevronLeft } from 'lucide-react'
 
 export default function Stats() {
   const navigate = useNavigate()
-  const { progress, errorBank, dailyGoal, setDailyGoal } = useUserStore()
+  const { progress, errorBank, dailyGoal, setDailyGoal, getDueReviewIds } = useUserStore()
 
   const all = Object.values(progress)
   const mastered = all.filter((p) => p.status === 'mastered').length
   const learning = all.filter((p) => p.status === 'learning').length
+  const dueReview = getDueReviewIds().length
+  const graduated = all.filter((p) => p.status === 'mastered' && p.dueDate === null).length
   const totalStudied = all.length
   const totalWords = 1598
 
@@ -48,6 +50,8 @@ export default function Stats() {
         {[
           { label: '已掌握', value: mastered, color: 'text-green-600' },
           { label: '学习中', value: learning, color: 'text-yellow-600' },
+          { label: '待复习', value: dueReview, color: 'text-orange-500' },
+          { label: '已巩固', value: graduated, color: 'text-emerald-600' },
           { label: '错题本', value: errorBank.length, color: 'text-red-500' },
           { label: '正确率', value: `${accuracy}%`, color: 'text-primary' },
         ].map((item) => (
