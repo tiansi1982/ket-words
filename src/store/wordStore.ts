@@ -1,12 +1,14 @@
 import { create } from 'zustand'
 import type { Word } from '@/types'
-import wordData from '@/data/ket-words.json'
 import { matchesSpelling, shuffled as shuffle } from '@/lib/word-utils'
 
-const allWords: Word[] = wordData as Word[]
-const wordById = new Map(allWords.map((w) => [w.id, w]))
+// The word list (350KB+) loads as its own chunk so the app shell parses first;
+// App gates rendering on `ready`
+let allWords: Word[] = []
+let wordById = new Map<number, Word>()
 
 interface WordStore {
+  ready: boolean
   words: Word[]
   getWord: (id: number) => Word | undefined
   // Pick today's study words: words already being learned first, then new
@@ -20,7 +22,8 @@ interface WordStore {
 }
 
 export const useWordStore = create<WordStore>()(() => ({
-  words: allWords,
+  ready: false,
+  words: [],
 
   getWord: (id) => wordById.get(id),
 
@@ -86,3 +89,9 @@ export const useWordStore = create<WordStore>()(() => ({
       .map((id) => wordById.get(id))
       .filter((w): w is Word => w !== undefined),
 }))
+
+export const wordsLoaded = import('@/data/ket-words.json').then((m) => {
+  allWords = m.default as Word[]
+  wordById = new Map(allWords.map((w) => [w.id, w]))
+  useWordStore.setState({ words: allWords, ready: true })
+})

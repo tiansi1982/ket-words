@@ -10,7 +10,8 @@ Object.defineProperty(globalThis, 'localStorage', { value: stub, configurable: t
 Object.defineProperty(globalThis, 'window', { value: { localStorage: stub }, configurable: true })
 
 const { useUserStore, toDateStr } = await import('../src/store/userStore')
-const { useWordStore } = await import('../src/store/wordStore')
+const { useWordStore, wordsLoaded } = await import('../src/store/wordStore')
+await wordsLoaded // word list is now a lazy chunk
 const s = () => useUserStore.getState()
 const dateStr = (offset: number) => { const d = new Date(); d.setDate(d.getDate() + offset); return toDateStr(d) }
 

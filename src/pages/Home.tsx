@@ -9,7 +9,7 @@ import { BookOpen, Zap, BarChart2, Brain } from 'lucide-react'
 export default function Home() {
   const navigate = useNavigate()
   const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getDueReviewIds, getStreak } = useUserStore()
-  const { pickDailyWords } = useWordStore()
+  const { words, pickDailyWords } = useWordStore()
 
   const masteredIds = new Set(
     Object.values(progress)
@@ -22,7 +22,7 @@ export default function Home() {
       .map((p) => p.wordId)
   )
   const totalMastered = masteredIds.size
-  const totalWords = 1598
+  const totalWords = words.length
 
   const dueCount = getDueReviewIds().length
   const streak = getStreak()

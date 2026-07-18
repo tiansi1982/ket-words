@@ -39,7 +39,9 @@ export default function Practice() {
   const { progress, updateProgress, addToErrorBank } = useUserStore()
   const { words } = useWordStore()
 
-  // Pick BATCH unmastered words (or any words if not enough)
+  const [round, setRound] = useState(0)
+
+  // Pick BATCH unmastered words (or any words if not enough); reshuffled each round
   const practiceWords = useMemo(() => {
     const masteredIds = new Set(
       Object.values(progress)
@@ -49,17 +51,25 @@ export default function Practice() {
     const pool = words.filter((w) => !masteredIds.has(w.id))
     const source = pool.length >= BATCH ? pool : words
     return shuffled(source).slice(0, BATCH)
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [round]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [index, setIndex] = useState(0)
   const [selected, setSelected] = useState<number | null>(null)
   const [score, setScore] = useState(0)
   const [done, setDone] = useState(false)
 
+  const restart = () => {
+    setRound((r) => r + 1)
+    setIndex(0)
+    setSelected(null)
+    setScore(0)
+    setDone(false)
+  }
+
   const current = practiceWords[index]
   const options = useMemo(
     () => (current ? buildOptions(current, words) : []),
-    [index] // eslint-disable-line react-hooks/exhaustive-deps
+    [index, practiceWords] // eslint-disable-line react-hooks/exhaustive-deps
   )
 
   const handleSelect = (word: Word) => {
@@ -116,7 +126,7 @@ export default function Practice() {
           <Button variant="outline" className="h-12 rounded-2xl px-6" onClick={() => navigate('/')}>
             返回首页
           </Button>
-          <Button className="h-12 rounded-2xl px-6" onClick={() => window.location.reload()}>
+          <Button className="h-12 rounded-2xl px-6" onClick={restart}>
             <RotateCcw className="h-4 w-4 mr-2" /> 再练一组
           </Button>
         </div>

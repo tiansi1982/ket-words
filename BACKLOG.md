@@ -56,14 +56,14 @@
 
 ## 三、工程优化
 
-- **E1. 清理无用依赖**：`@anthropic-ai/sdk`（前端用不到且不该出现在浏览器端）、`shadcn`（CLI 不应是运行时依赖）、`leancloud-storage`（云同步未实现前可移到实现时再加）。
-- **E2. 清理无用文件**：`src/data/word-list.json`（136KB，无任何引用）、`src/assets/hero.png`、`react.svg`、`vite.svg`、`App.css`。
-- **E3. Bundle 拆分**：首屏 JS 582KB（gzip 172KB）。`ket-words.json`（352KB）改动态 import；路由级 lazy 加载。
-- **E4. `getWord` 用 Map 替代 `Array.find`**（每次 O(1598) 线性查找）。
-- **E5. 加 404 兜底路由**（现在未知路径白屏）和 React Error Boundary。
-- **E6. 硬编码的 1598** 出现在 Home 和 Stats 两处，改用 `words.length`。
-- **E7. README.md 还是 Vite 模板**，替换为项目说明（SPEC.md 已很完整，README 可精简指向它）。
-- **E8. "再练一组"用 `window.location.reload()`**，改为状态重置。
+- **E1. 清理无用依赖** ✅ 已完成 (2026-07-17)：移除 `@anthropic-ai/sdk`、`shadcn`（其 tailwind.css 无任何特性被使用，一并去掉 import）、`leancloud-storage`。
+- **E2. 清理无用文件** ✅ 已完成 (2026-07-17)：删除 `word-list.json`、`hero.png`、`react.svg`、`vite.svg`、`App.css`。
+- **E3. Bundle 拆分** ✅ 已完成 (2026-07-17)：词库改动态 import（App 以 `ready` 门控），路由级 lazy。首屏 JS 582KB→274KB（gzip 88KB），词库 311KB 并行独立 chunk。
+- **E4. `getWord` 用 Map** ✅ 已完成（修 B 组 bug 时顺带完成）。
+- **E5. 404 兜底路由 + Error Boundary** ✅ 已完成 (2026-07-17)。
+- **E6. 硬编码 1598 改 `words.length`** ✅ 已完成 (2026-07-17)。
+- **E7. README 重写** ✅ 已完成 (2026-07-17)。
+- **E8. "再练一组"改状态重置** ✅ 已完成 (2026-07-17)。
 
 ## 四、产品功能提案（待讨论优先级）
 

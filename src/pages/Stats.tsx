@@ -39,7 +39,7 @@ export default function Stats() {
     return { label, done, total: bucket.length }
   })
   const totalStudied = all.length
-  const totalWords = 1598
+  const totalWords = words.length
 
   const accuracy =
     totalStudied === 0
