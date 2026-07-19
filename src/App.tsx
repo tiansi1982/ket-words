@@ -1,6 +1,7 @@
-import { lazy, Suspense, Component, type ReactNode } from 'react'
+import { lazy, Suspense, Component, useEffect, type ReactNode } from 'react'
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { useWordStore } from '@/store/wordStore'
+import { startAutoSync } from '@/services/sync'
 import { Button } from '@/components/ui/button'
 
 const Home = lazy(() => import('@/pages/Home'))
@@ -62,6 +63,13 @@ const loading = (
 export default function App() {
   // Wait for the word-list chunk so pages never see an empty dictionary
   const ready = useWordStore((s) => s.ready)
+
+  // P3: pull bound profiles once, then keep local changes pushed (no-op if
+  // VITE_LC_* is not configured)
+  useEffect(() => {
+    startAutoSync()
+  }, [])
+
   if (!ready) return loading
 
   return (

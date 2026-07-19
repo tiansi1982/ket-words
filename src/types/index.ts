@@ -50,8 +50,19 @@ export interface ProfileData {
   dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
 }
 
+// LeanCloud account bound to one profile (P3 cloud sync)
+export interface SyncAccount {
+  username: string
+  sessionToken: string
+  userObjectId: string // _User objectId, used as the owner pointer
+  syncObjectId?: string // KetProfile objectId once the cloud doc exists
+  lastSyncAt?: number
+  invalid?: boolean // session expired/revoked → needs re-login
+}
+
 export interface UserState extends ProfileData {
   activeProfileId: string
   profileList: ProfileMeta[]
   profileData: Record<string, ProfileData> // keyed by profile id, active profile excluded
+  syncAccounts: Record<string, SyncAccount> // keyed by profile id
 }

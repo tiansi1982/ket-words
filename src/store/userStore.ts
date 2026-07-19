@@ -1,12 +1,19 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount } from '@/types'
 
 interface UserStore extends UserState {
   addProfile: (name: string) => void
   switchProfile: (id: string) => void
   renameProfile: (id: string, name: string) => void
   deleteProfile: (id: string) => void
+  setSyncAccount: (profileId: string, account: SyncAccount) => void
+  patchSyncAccount: (profileId: string, patch: Partial<SyncAccount>) => void
+  clearSyncAccount: (profileId: string) => void
+  // Read a profile's data whether it's active (top-level) or stashed
+  getProfileData: (profileId: string) => ProfileData | undefined
+  // Replace a profile's data (used by cloud sync after merging)
+  applyProfileData: (profileId: string, data: ProfileData) => void
   setDailyGoal: (goal: number) => void
   startDailySession: (wordIds: number[]) => void
   advanceSession: () => void
@@ -91,6 +98,7 @@ export const useUserStore = create<UserStore>()(
       activeProfileId: initialProfileId,
       profileList: [{ id: initialProfileId, name: '孩子 1' }],
       profileData: {},
+      syncAccounts: {},
       dailyGoal: 20,
       currentSession: null,
       progress: {},
@@ -137,19 +145,56 @@ export const useUserStore = create<UserStore>()(
         set((state) => {
           if (state.profileList.length <= 1) return state
           const profileList = state.profileList.filter((p) => p.id !== id)
+          const syncAccounts = { ...state.syncAccounts }
+          delete syncAccounts[id]
           if (id !== state.activeProfileId) {
-            const { [id]: _removed, ...profileData } = state.profileData
-            return { profileList, profileData }
+            const profileData = { ...state.profileData }
+            delete profileData[id]
+            return { profileList, profileData, syncAccounts }
           }
           // deleting the active profile: activate the first remaining one
           const nextId = profileList[0].id
-          const { [nextId]: next, [id]: _removed, ...profileData } = state.profileData
+          const next = state.profileData[nextId]
+          const profileData = { ...state.profileData }
+          delete profileData[id]
+          delete profileData[nextId]
           return {
             profileList,
             profileData,
+            syncAccounts,
             activeProfileId: nextId,
             ...withDefaults(next),
           }
+        }),
+
+      setSyncAccount: (profileId, account) =>
+        set((state) => ({ syncAccounts: { ...state.syncAccounts, [profileId]: account } })),
+
+      patchSyncAccount: (profileId, patch) =>
+        set((state) => {
+          const existing = state.syncAccounts[profileId]
+          if (!existing) return state
+          return { syncAccounts: { ...state.syncAccounts, [profileId]: { ...existing, ...patch } } }
+        }),
+
+      clearSyncAccount: (profileId) =>
+        set((state) => {
+          const syncAccounts = { ...state.syncAccounts }
+          delete syncAccounts[profileId]
+          return { syncAccounts }
+        }),
+
+      getProfileData: (profileId) => {
+        const state = get()
+        if (profileId === state.activeProfileId) return snapshot(state)
+        return state.profileData[profileId]
+      },
+
+      applyProfileData: (profileId, data) =>
+        set((state) => {
+          if (profileId === state.activeProfileId) return { ...withDefaults(data) }
+          if (!state.profileList.some((p) => p.id === profileId)) return state
+          return { profileData: { ...state.profileData, [profileId]: withDefaults(data) } }
         }),
 
       setDailyGoal: (goal) => set({ dailyGoal: goal }),
@@ -289,19 +334,24 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'ket-words-user',
-      version: 1,
+      version: 2,
       migrate: (persisted, version) => {
+        let state = persisted as UserState
         // v0 was single-user: wrap the existing data as the first profile
         if (version === 0) {
           const id = genId()
-          return {
-            ...(persisted as object),
+          state = {
+            ...state,
             activeProfileId: id,
             profileList: [{ id, name: '孩子 1' }],
             profileData: {},
-          } as UserState
+          }
         }
-        return persisted as UserState
+        // v1 predates cloud sync
+        if (version <= 1) {
+          state = { ...state, syncAccounts: {} }
+        }
+        return state
       },
     }
   )

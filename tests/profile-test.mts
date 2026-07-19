@@ -83,9 +83,9 @@ assert.equal(s().profileList.length, 1)
 s().deleteProfile(kid2)
 assert.equal(s().profileList.length, 1, 'last profile cannot be deleted')
 
-// 8. Persisted JSON is v1 and round-trips
+// 8. Persisted JSON carries the current version and round-trips
 const persisted = JSON.parse(mem.get('ket-words-user')!)
-assert.equal(persisted.version, 1)
+assert.equal(persisted.version, 2)
 assert.equal(persisted.state.profileList.length, 1)
 
 console.log('✅ all profile assertions passed')

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useUserStore } from '@/store/userStore'
 import { ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react'
+import SyncPanel from '@/components/SyncPanel'
 
 // "谁在学?" — switch between kids' profiles on the home page
 export default function ProfileSwitcher() {
@@ -157,6 +158,8 @@ export default function ProfileSwitcher() {
               添加孩子
             </button>
           )}
+
+          <SyncPanel />
         </div>
       )}
     </div>
