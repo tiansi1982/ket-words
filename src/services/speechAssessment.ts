@@ -53,6 +53,11 @@ export function similarity(a: string, b: string): number {
   return Math.round((1 - dist / maxLen) * 100)
 }
 
+// Give up listening after this long: stop() first so a late result can still
+// arrive, then force an empty result shortly after
+export const LISTEN_TIMEOUT_MS = 15000
+const STOP_GRACE_MS = 2000
+
 class WebSpeechAssessment implements SpeechAssessmentService {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private recognition: any = null
@@ -68,13 +73,25 @@ class WebSpeechAssessment implements SpeechAssessmentService {
         reject(new Error('SpeechRecognition not supported'))
         return
       }
-      this.recognition = new RC()
-      this.recognition.lang = lang
-      this.recognition.interimResults = false
-      this.recognition.maxAlternatives = 3
+      const rec = new RC()
+      this.recognition = rec
+      rec.lang = lang
+      rec.interimResults = false
+      rec.maxAlternatives = 3
+
+      const empty: AssessmentResult = { transcript: '', score: 0, passed: false }
+      let settled = false
+      let graceTimer: ReturnType<typeof setTimeout> | undefined
+      const settle = (fn: () => void) => {
+        if (settled) return
+        settled = true
+        clearTimeout(stopTimer)
+        clearTimeout(graceTimer)
+        fn()
+      }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.recognition.onresult = (event: any) => {
+      rec.onresult = (event: any) => {
         let best = ''
         let bestScore = 0
         for (let i = 0; i < event.results[0].length; i++) {
@@ -82,23 +99,35 @@ class WebSpeechAssessment implements SpeechAssessmentService {
           const s = similarity(target, t)
           if (s > bestScore) { bestScore = s; best = t }
         }
-        resolve({ transcript: best, score: bestScore, passed: bestScore >= 70 })
+        settle(() => resolve({ transcript: best, score: bestScore, passed: bestScore >= 70 }))
       }
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      this.recognition.onerror = (e: any) => {
+      rec.onerror = (e: any) => {
         if (e.error === 'no-speech') {
-          resolve({ transcript: '', score: 0, passed: false })
+          settle(() => resolve(empty))
         } else {
-          reject(new Error(e.error))
+          settle(() => reject(new Error(e.error)))
         }
       }
 
-      this.recognition.onnomatch = () => {
-        resolve({ transcript: '', score: 0, passed: false })
-      }
+      rec.onnomatch = () => settle(() => resolve(empty))
 
-      this.recognition.start()
+      // Some engines (iOS Safari especially) end recognition without ever
+      // firing onresult/onerror — without this the UI hangs on "listening"
+      rec.onend = () => settle(() => resolve(empty))
+
+      // Engine never ends on its own: stop it, then force an empty result
+      const stopTimer = setTimeout(() => {
+        graceTimer = setTimeout(() => settle(() => resolve(empty)), STOP_GRACE_MS)
+        try {
+          rec.stop()
+        } catch {
+          settle(() => resolve(empty))
+        }
+      }, LISTEN_TIMEOUT_MS)
+
+      rec.start()
     })
   }
 
