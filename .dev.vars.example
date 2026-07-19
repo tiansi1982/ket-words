@@ -1,0 +1,6 @@
+# Tencent 智聆口语评测（SOE）服务端密钥 — 复制为 .dev.vars 供本地 wrangler pages dev 使用。
+# 生产环境用 `npx wrangler pages secret put <NAME> --project-name ket-words` 逐个设置。
+# 三者都未设置时，跟读评分自动隐藏，仅保留录音回放对比。
+SOE_APP_ID=腾讯云账号APPID（控制台右上角「账号信息」，纯数字）
+SOE_SECRET_ID=AKIDxxxxxxxx
+SOE_SECRET_KEY=xxxxxxxx

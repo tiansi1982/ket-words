@@ -6,8 +6,9 @@
 
 export interface RecorderService {
   isSupported(): boolean
-  // Ask for the mic and start recording; rejects if permission is denied
-  start(): Promise<void>
+  // Ask for the mic and start recording; rejects if permission is denied.
+  // Returns the live stream so callers can tap it (e.g. cloud scoring).
+  start(): Promise<MediaStream>
   // Stop and return the finished recording
   stop(): Promise<Blob>
   // Drop any in-flight recording and release the mic
@@ -31,7 +32,7 @@ class MediaRecorderService implements RecorderService {
     return typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   }
 
-  async start(): Promise<void> {
+  async start(): Promise<MediaStream> {
     this.cancel()
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     this.stream = stream
@@ -43,6 +44,7 @@ class MediaRecorderService implements RecorderService {
       if (e.data.size > 0) this.chunks.push(e.data)
     }
     rec.start()
+    return stream
   }
 
   stop(): Promise<Blob> {

@@ -65,7 +65,8 @@ assert.equal(recorder.isSupported(), true)
 
 // ── 2. start → stop yields a blob and releases the mic ──
 {
-  await recorder.start()
+  const stream = await recorder.start()
+  assert.equal(stream, lastStream as unknown, 'start() hands back the live stream for tapping')
   const rec = FakeMediaRecorder.last
   assert.equal(rec.state, 'recording')
   assert.equal(rec.mimeType, 'audio/webm', 'picks a supported container')
