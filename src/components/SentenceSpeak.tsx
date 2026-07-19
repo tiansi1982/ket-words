@@ -1,14 +1,16 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { tts } from '@/services/tts'
-import { speechAssessment } from '@/services/speechAssessment'
+import { recorder } from '@/services/recorder'
 import { baseWord, displayWord } from '@/lib/word-utils'
-import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { Mic, MicOff, Loader2 } from 'lucide-react'
+import { Mic, MicOff, Square, Play, Volume2 } from 'lucide-react'
 import type { Word } from '@/types'
 
-type SpeakState = 'idle' | 'listening' | 'done'
+type SpeakState = 'idle' | 'recording' | 'recorded'
+
+// Don't let a walked-away-from mic run forever
+const MAX_RECORD_MS = 30000
 
 // Listening = the word followed by its example sentence
 export const speakWordAndExample = (w: Word) => tts.speakAll([baseWord(w.word), w.example])
@@ -36,32 +38,72 @@ interface SentenceSpeakProps {
 }
 
 // Sentence read-aloud practice card: shows the example sentence, records the
-// child reading it, and scores the pronunciation. Used by Study and ErrorBank.
+// child reading it, and plays the recording back for comparison against the
+// TTS reading. Used by Study and ErrorBank.
 export default function SentenceSpeak({ word, continueLabel, skipLabel, onContinue }: SentenceSpeakProps) {
   const [state, setState] = useState<SpeakState>('idle')
-  const [transcript, setTranscript] = useState('')
-  const [score, setScore] = useState(0)
-  const [passed, setPassed] = useState(false)
+  const [error, setError] = useState('')
+  const [audioUrl, setAudioUrl] = useState('')
+  const audioRef = useRef<HTMLAudioElement | null>(null)
+  const stopTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
 
   useEffect(() => {
-    return () => { speechAssessment.cancel() }
+    return () => {
+      recorder.cancel()
+      clearTimeout(stopTimer.current)
+    }
   }, [])
 
-  const handleSpeak = useCallback(async () => {
-    if (state === 'listening') return
-    setState('listening')
-    setTranscript('')
-    tts.stop()
+  // Revoke each recording's object URL when it's replaced or on unmount
+  useEffect(() => {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl)
+    }
+  }, [audioUrl])
+
+  const handleStop = useCallback(async () => {
+    clearTimeout(stopTimer.current)
     try {
-      const result = await speechAssessment.assess(word.example)
-      setTranscript(result.transcript)
-      setScore(result.score)
-      setPassed(result.passed)
-      setState('done')
+      const blob = await recorder.stop()
+      setAudioUrl(URL.createObjectURL(blob))
+      setState('recorded')
     } catch {
+      setError('录音失败，再试一次吧')
       setState('idle')
     }
-  }, [word, state])
+  }, [])
+
+  const handleRecord = useCallback(async () => {
+    if (state === 'recording') {
+      void handleStop()
+      return
+    }
+    setError('')
+    tts.stop()
+    audioRef.current?.pause()
+    try {
+      await recorder.start()
+      setState('recording')
+      stopTimer.current = setTimeout(handleStop, MAX_RECORD_MS)
+    } catch {
+      setError('用不了麦克风，请在系统设置里允许本应用使用麦克风')
+    }
+  }, [state, handleStop])
+
+  const handlePlayback = () => {
+    tts.stop()
+    const el = audioRef.current
+    if (!el) return
+    el.currentTime = 0
+    void el.play()
+  }
+
+  const handleContinue = () => {
+    recorder.cancel()
+    clearTimeout(stopTimer.current)
+    tts.stop()
+    onContinue()
+  }
 
   return (
     <div className="flex flex-col gap-5 flex-1 animate-fade-up">
@@ -77,54 +119,50 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         </p>
         <p className="text-xs text-muted-foreground/80">{word.example_cn}</p>
 
-        {/* Mic button */}
+        {/* Record button */}
         <button
-          onClick={handleSpeak}
-          disabled={state === 'listening'}
-          aria-label="开始录音"
+          onClick={handleRecord}
+          aria-label={state === 'recording' ? '停止录音' : '开始录音'}
           className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 ${
-            state === 'listening'
+            state === 'recording'
               ? 'bg-red-500 text-white scale-110 animate-mic-ring'
               : 'btn-hero text-white hover:scale-105 active:scale-95'
           }`}
         >
-          {state === 'listening'
-            ? <Loader2 className="h-8 w-8 animate-spin" />
+          {state === 'recording'
+            ? <Square className="h-8 w-8 fill-current" />
             : <Mic className="h-8 w-8" />}
         </button>
         <p className="text-xs text-muted-foreground">
-          {state === 'idle' && '点击麦克风，读出整个句子'}
-          {state === 'listening' && '正在聆听...'}
-          {state === 'done' && (
-            passed
-              ? `✅ 读得不错！识别为 "${transcript}"`
-              : `❌ 再试试！识别为 "${transcript || '未识别'}"`
+          {error || (
+            <>
+              {state === 'idle' && '点击麦克风，读出整个句子'}
+              {state === 'recording' && '正在录音…读完后再点一下停止'}
+              {state === 'recorded' && '🎧 听听自己读的，和标准发音比一比'}
+            </>
           )}
         </p>
-        {state === 'done' && (
+        {state === 'recorded' && (
           <div className="flex items-center justify-center gap-3 animate-fade-up">
-            <ProgressBar
-              value={score}
-              className="h-2 flex-1"
-              barClassName={`duration-700 ${
-                score >= 70
-                  ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                  : 'bg-gradient-to-r from-amber-400 to-yellow-500'
-              }`}
-            />
-            <span className="w-12 text-right text-sm font-bold tabular-nums">{score}分</span>
+            <Button variant="glass" className="gap-1.5" onClick={handlePlayback}>
+              <Play className="h-4 w-4" /> 我的录音
+            </Button>
+            <Button variant="glass" className="gap-1.5" onClick={() => speakWordAndExample(word)}>
+              <Volume2 className="h-4 w-4" /> 标准发音
+            </Button>
           </div>
         )}
+        {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
       </div>
 
       <div className="flex gap-3">
-        {state === 'done' && (
-          <Button variant="glass" className="h-13 flex-1 gap-1.5" onClick={handleSpeak}>
-            <Mic className="h-4 w-4" /> 再试一次
+        {state === 'recorded' && (
+          <Button variant="glass" className="h-13 flex-1 gap-1.5" onClick={handleRecord}>
+            <Mic className="h-4 w-4" /> 再录一遍
           </Button>
         )}
-        <Button variant="hero" className="h-13 flex-1 gap-1.5" onClick={onContinue}>
-          {state === 'done' ? continueLabel : (
+        <Button variant="hero" className="h-13 flex-1 gap-1.5" onClick={handleContinue}>
+          {state === 'recorded' ? continueLabel : (
             <>
               <MicOff className="h-4 w-4" /> {skipLabel}
             </>

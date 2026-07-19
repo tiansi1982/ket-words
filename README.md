@@ -10,7 +10,8 @@
 ## 技术栈
 
 React 19 + TypeScript + Vite + Tailwind 4 + zustand（localStorage 持久化，无后端）。
-发音朗读用浏览器原生 speechSynthesis，发音评估用 SpeechRecognition，均为英式（en-GB）。
+发音朗读用浏览器原生 speechSynthesis（英式 en-GB）；整句跟读用 MediaRecorder 录音回放，
+孩子自己对比标准发音（曾用 SpeechRecognition 自动评分，因目标设备上系统识别引擎不可用而弃用）。
 
 ## 开发
 

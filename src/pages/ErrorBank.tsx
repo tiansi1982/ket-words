@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
-import { speechAssessment } from '@/services/speechAssessment'
+import { recorder } from '@/services/recorder'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
@@ -15,7 +15,7 @@ import type { Word } from '@/types'
 
 type Phase = 'quiz' | 'result' | 'speak'
 
-const hasSpeech = speechAssessment.isSupported()
+const hasSpeech = recorder.isSupported()
 
 export default function ErrorBank() {
   const navigate = useNavigate()

@@ -15,7 +15,7 @@ export function acceptedSpellings(word: string): string[] {
   return [short, long]
 }
 
-// 用于 TTS 朗读和发音评估的基础拼写（不含括号内容）
+// 用于 TTS 朗读和跟读展示的基础拼写（不含括号内容）
 export function baseWord(word: string): string {
   return acceptedSpellings(word)[0]
 }
