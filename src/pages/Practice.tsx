@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
-import { baseWord, shuffled } from '@/lib/word-utils'
+import { baseWord, displayWord, shuffled } from '@/lib/word-utils'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
@@ -161,7 +161,7 @@ export default function Practice() {
         {/* Show word + TTS after answering */}
         {answered && (
           <div className="mt-5 flex items-center justify-center gap-2.5 border-t border-border/70 pt-5 animate-fade-up">
-            <span className="text-3xl font-extrabold tracking-tight text-gradient">{current.word}</span>
+            <span className="text-3xl font-extrabold tracking-tight text-gradient">{displayWord(current.word)}</span>
             <SpeakButton onClick={() => tts.speak(baseWord(current.word))} label="朗读单词" />
           </div>
         )}
@@ -186,7 +186,7 @@ export default function Practice() {
 
           return (
             <button key={opt.id} className={cls} onClick={() => handleSelect(opt)}>
-              {opt.word}
+              {displayWord(opt.word)}
             </button>
           )
         })}
@@ -196,7 +196,7 @@ export default function Practice() {
       {answered && (
         <div className="flex flex-col gap-3 animate-fade-up">
           <p className={`text-center font-semibold ${correct ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-            {correct ? '✅ 回答正确！' : `❌ 正确答案是 "${current.word}"`}
+            {correct ? '✅ 回答正确！' : `❌ 正确答案是 "${displayWord(current.word)}"`}
           </p>
           <Button variant="hero" className="h-14 w-full text-base" onClick={handleNext}>
             {index + 1 < practiceWords.length ? '下一题 →' : '查看成绩 🎉'}

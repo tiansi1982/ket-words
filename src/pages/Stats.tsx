@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { useUserStore, toDateStr } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
-import { baseWord } from '@/lib/word-utils'
+import { difficultyOf, type Difficulty } from '@/lib/word-utils'
 import { pct } from '@/lib/utils'
 import { BackButton } from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -29,16 +29,15 @@ export default function Stats() {
   })
   const maxCount = Math.max(1, ...days.map((d) => d.count))
 
-  // Mastery by difficulty (same base-word-length buckets as daily word picking);
+  // Mastery by difficulty (same total-letter buckets as daily word picking);
   // memoized — three full passes over the word list shouldn't rerun on every goal tap
   const difficulty = useMemo(() => {
-    const baseLen = (w: string) => baseWord(w).split(' ')[0].length
     return [
-      { label: '简单（≤4 字母）', match: (n: number) => n <= 4, bar: 'bg-gradient-to-r from-emerald-400 to-green-500' },
-      { label: '中等（5–7 字母）', match: (n: number) => n >= 5 && n <= 7, bar: 'progress-gradient' },
-      { label: '困难（≥8 字母）', match: (n: number) => n >= 8, bar: 'bg-gradient-to-r from-orange-400 to-rose-500' },
-    ].map(({ label, match, bar }) => {
-      const bucket = words.filter((w) => match(baseLen(w.word)))
+      { label: '简单（≤4 字母）', level: 'easy' as Difficulty, bar: 'bg-gradient-to-r from-emerald-400 to-green-500' },
+      { label: '中等（5–7 字母）', level: 'medium' as Difficulty, bar: 'progress-gradient' },
+      { label: '困难（≥8 字母）', level: 'hard' as Difficulty, bar: 'bg-gradient-to-r from-orange-400 to-rose-500' },
+    ].map(({ label, level, bar }) => {
+      const bucket = words.filter((w) => difficultyOf(w.word) === level)
       const done = bucket.filter((w) => masteredIds.has(w.id)).length
       return { label, done, total: bucket.length, bar }
     })

@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { tts } from '@/services/tts'
 import { speechAssessment } from '@/services/speechAssessment'
-import { baseWord } from '@/lib/word-utils'
+import { baseWord, displayWord } from '@/lib/word-utils'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
@@ -68,7 +68,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
       <div className="glass-card flex w-full flex-1 flex-col justify-center gap-4 rounded-[2rem] p-8 text-center">
         <p className="text-sm font-medium text-muted-foreground">跟读这个句子</p>
         <div className="flex items-center justify-center gap-3">
-          <span className="text-3xl font-extrabold tracking-tight">{word.word}</span>
+          <span className="text-3xl font-extrabold tracking-tight">{displayWord(word.word)}</span>
           <SpeakButton onClick={() => speakWordAndExample(word)} />
         </div>
         {word.ipa && <p className="-mt-2 font-mono text-sm text-muted-foreground">{word.ipa}</p>}

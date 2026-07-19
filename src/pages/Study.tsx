@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { speechAssessment } from '@/services/speechAssessment'
-import { spellingHint } from '@/lib/word-utils'
+import { displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak, { ExampleSentence, speakWordAndExample } from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -103,7 +103,7 @@ export default function Study() {
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
           <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
             <div className="mb-2 flex items-center justify-center gap-3">
-              <span className="text-[2.75rem] leading-tight font-extrabold tracking-tight">{currentWord.word}</span>
+              <span className="text-[2.75rem] leading-tight font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => speakWordAndExample(currentWord)} className="h-10 w-10" iconClassName="h-5 w-5" />
             </div>
             <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
@@ -180,7 +180,7 @@ export default function Study() {
           >
             <div className="text-6xl animate-pop-in">{lastCorrect ? '✅' : '❌'}</div>
             <div className="mt-2 flex items-center justify-center gap-2.5">
-              <span className="text-4xl font-extrabold tracking-tight">{currentWord.word}</span>
+              <span className="text-4xl font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => speakWordAndExample(currentWord)} />
             </div>
             {currentWord.ipa && <p className="font-mono text-sm text-muted-foreground">{currentWord.ipa}</p>}

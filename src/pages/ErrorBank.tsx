@@ -4,7 +4,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { speechAssessment } from '@/services/speechAssessment'
-import { baseWord, spellingHint } from '@/lib/word-utils'
+import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -143,7 +143,7 @@ export default function ErrorBank() {
           >
             <div className="mb-3 text-5xl animate-pop-in">{lastCorrect ? '✅' : '❌'}</div>
             <div className="flex items-center justify-center gap-2.5">
-              <span className="text-4xl font-extrabold tracking-tight">{currentWord.word}</span>
+              <span className="text-4xl font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => tts.speakAll([baseWord(currentWord.word), currentWord.example])} />
             </div>
             {lastCorrect && (

@@ -20,6 +20,20 @@ export function baseWord(word: string): string {
   return acceptedSpellings(word)[0]
 }
 
+// 界面展示用：去掉空格前置的消歧注释（中文释义已能区分词义），
+// 保留内联可选字母以提示两种拼法："design (DRAWING)" → "design"，"blond(e)" 原样
+export function displayWord(word: string): string {
+  return word.replace(/ \([^)]*\)/g, '').trim()
+}
+
+// 难度分桶：按基础拼写的总字母数（忽略空格等非字母），
+// 词组如 "ice cream"（8 字母）不再只按第一个词算成简单
+export type Difficulty = 'easy' | 'medium' | 'hard'
+export function difficultyOf(word: string): Difficulty {
+  const n = baseWord(word).replace(/[^a-z]/gi, '').length
+  return n <= 4 ? 'easy' : n <= 7 ? 'medium' : 'hard'
+}
+
 export function matchesSpelling(input: string, word: string): boolean {
   const n = normalize(input)
   return acceptedSpellings(word).some((s) => normalize(s) === n)

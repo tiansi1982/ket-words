@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import type { Word } from '@/types'
-import { matchesSpelling, shuffled as shuffle } from '@/lib/word-utils'
+import { difficultyOf, matchesSpelling, shuffled as shuffle } from '@/lib/word-utils'
 
 // The word list (350KB+) loads as its own chunk so the app shell parses first;
 // App gates rendering on `ready`
@@ -39,17 +39,15 @@ export const useWordStore = create<WordStore>()(() => ({
   },
 
   pickDailyWords: (masteredIds, goal, learningIds) => {
-    const baseLen = (word: string) => word.split(' ')[0].length
-
     // Words already in progress come first so they don't dangle half-learned
     const learningPicked = shuffle(allWords.filter((w) => learningIds.has(w.id))).slice(0, goal)
     goal -= learningPicked.length
 
     const pool = allWords.filter((w) => !masteredIds.has(w.id) && !learningIds.has(w.id))
 
-    const easy   = shuffle(pool.filter((w) => baseLen(w.word) <= 4))
-    const medium = shuffle(pool.filter((w) => baseLen(w.word) >= 5 && baseLen(w.word) <= 7))
-    const hard   = shuffle(pool.filter((w) => baseLen(w.word) >= 8))
+    const easy   = shuffle(pool.filter((w) => difficultyOf(w.word) === 'easy'))
+    const medium = shuffle(pool.filter((w) => difficultyOf(w.word) === 'medium'))
+    const hard   = shuffle(pool.filter((w) => difficultyOf(w.word) === 'hard'))
 
     // Progress 0→1 based on how many of all words are mastered
     const p = Math.min(1, masteredIds.size / allWords.length)
