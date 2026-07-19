@@ -64,8 +64,7 @@ export default function App() {
   // Wait for the word-list chunk so pages never see an empty dictionary
   const ready = useWordStore((s) => s.ready)
 
-  // P3: pull bound profiles once, then keep local changes pushed (no-op if
-  // VITE_LC_* is not configured)
+  // P3: pull bound profiles once, then keep local changes pushed
   useEffect(() => {
     startAutoSync()
   }, [])

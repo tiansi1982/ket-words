@@ -1,23 +1,18 @@
-// P3 cloud sync via the LeanCloud REST API.
+// P3 cloud sync via our own Pages Functions API (functions/api/sync/*, D1).
+// Replaced LeanCloud after its international service was retired in 2026.
 //
-// The official SDK keeps a single global "current user", which conflicts with
-// per-profile accounts (each kid binds their own account), so we talk REST
-// directly and keep one session token per profile in the store.
+// Each kid profile binds its own username/password account, with one session
+// token per profile kept in the store.
 //
-// Cloud model: one `KetProfile` object per account holding a full ProfileData
-// snapshot, ACL-restricted to the owning user. Sync = pull → merge → apply →
-// push. The merge never discards learning data (see mergeProfileData).
+// Cloud model: one profile row per account holding a full ProfileData
+// snapshot. Sync = pull → merge → apply → push. The merge never discards
+// learning data (see mergeProfileData).
 import type { ProfileData, WordProgress, DailySession, SyncAccount } from '@/types'
 import { useUserStore, toDateStr } from '@/store/userStore'
 
-// ── Config (set VITE_LC_* in .env.local / the build environment) ──
-
-const env = (import.meta as { env?: Record<string, string | undefined> }).env ?? {}
-const APP_ID = env.VITE_LC_APP_ID
-const APP_KEY = env.VITE_LC_APP_KEY
-const SERVER_URL = (env.VITE_LC_SERVER_URL ?? '').replace(/\/+$/, '')
-
-export const syncConfigured = Boolean(APP_ID && APP_KEY && SERVER_URL)
+// Same-origin API — no config needed; the panel only fails at runtime when
+// the app is served without Functions (plain `vite dev`)
+export const syncConfigured = true
 
 // ── Minimal REST client ──
 
@@ -50,17 +45,15 @@ export function syncErrorText(e: unknown): string {
 
 const SESSION_INVALID = 211
 
-async function lcFetch<T>(
+async function apiFetch<T>(
   path: string,
   opts: { method?: string; body?: unknown; sessionToken?: string } = {}
 ): Promise<T> {
-  const res = await fetch(`${SERVER_URL}${path}`, {
+  const res = await fetch(`/api/sync${path}`, {
     method: opts.method ?? 'GET',
     headers: {
-      'X-LC-Id': APP_ID!,
-      'X-LC-Key': APP_KEY!,
       'Content-Type': 'application/json',
-      ...(opts.sessionToken ? { 'X-LC-Session': opts.sessionToken } : {}),
+      ...(opts.sessionToken ? { Authorization: `Bearer ${opts.sessionToken}` } : {}),
     },
     body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
   })
@@ -77,62 +70,38 @@ interface AuthResult {
 }
 
 export function signUp(username: string, password: string): Promise<AuthResult> {
-  return lcFetch<AuthResult>('/1.1/users', { method: 'POST', body: { username, password } })
+  return apiFetch<AuthResult>('/register', { method: 'POST', body: { username, password } })
 }
 
 export function logIn(username: string, password: string): Promise<AuthResult> {
-  return lcFetch<AuthResult>('/1.1/login', { method: 'POST', body: { username, password } })
+  return apiFetch<AuthResult>('/login', { method: 'POST', body: { username, password } })
 }
 
 // ── Cloud document ──
 
-const CLASS_PATH = '/1.1/classes/KetProfile'
-
 interface CloudDoc {
-  objectId: string
   data?: ProfileData
   profileName?: string
   clientUpdatedAt?: number
 }
 
-function ownerPointer(userObjectId: string) {
-  return { __type: 'Pointer', className: '_User', objectId: userObjectId }
-}
-
 async function fetchCloud(account: SyncAccount): Promise<CloudDoc | null> {
-  const where = encodeURIComponent(JSON.stringify({ owner: ownerPointer(account.userObjectId) }))
-  const res = await lcFetch<{ results: CloudDoc[] }>(`${CLASS_PATH}?where=${where}&limit=1`, {
+  const res = await apiFetch<{ profile: CloudDoc | null }>('/profile', {
     sessionToken: account.sessionToken,
   })
-  return res.results[0] ?? null
+  return res.profile
 }
 
-// Create or update the account's cloud doc; returns its objectId
 async function pushCloud(
   account: SyncAccount,
-  objectId: string | undefined,
   data: ProfileData,
   profileName: string
-): Promise<string> {
-  const body = { data, profileName, clientUpdatedAt: Date.now() }
-  if (objectId) {
-    await lcFetch(`${CLASS_PATH}/${objectId}`, {
-      method: 'PUT',
-      body,
-      sessionToken: account.sessionToken,
-    })
-    return objectId
-  }
-  const created = await lcFetch<{ objectId: string }>(CLASS_PATH, {
-    method: 'POST',
-    body: {
-      ...body,
-      owner: ownerPointer(account.userObjectId),
-      ACL: { [account.userObjectId]: { read: true, write: true } },
-    },
+): Promise<void> {
+  await apiFetch('/profile', {
+    method: 'PUT',
+    body: { data, profileName, clientUpdatedAt: Date.now() },
     sessionToken: account.sessionToken,
   })
-  return created.objectId
 }
 
 // ── Merge (pure; exercised by tests/sync-test.mts) ──
@@ -203,15 +172,12 @@ export async function syncProfile(profileId: string): Promise<void> {
       useUserStore.getState().applyProfileData(profileId, merged)
     }
 
-    let objectId = cloud?.objectId ?? account.syncObjectId
     if (!cloud || JSON.stringify(cloud.data) !== mergedJson) {
       const name =
         useUserStore.getState().profileList.find((p) => p.id === profileId)?.name ?? ''
-      objectId = await pushCloud(account, cloud?.objectId, merged, name)
+      await pushCloud(account, merged, name)
     }
-    useUserStore
-      .getState()
-      .patchSyncAccount(profileId, { syncObjectId: objectId, lastSyncAt: Date.now() })
+    useUserStore.getState().patchSyncAccount(profileId, { lastSyncAt: Date.now() })
   } catch (e) {
     if (e instanceof SyncError && e.code === SESSION_INVALID) {
       useUserStore.getState().patchSyncAccount(profileId, { invalid: true })

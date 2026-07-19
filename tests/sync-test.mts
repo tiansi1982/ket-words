@@ -33,8 +33,8 @@ const { mergeProfileData, syncConfigured } = await import('../src/services/sync'
 const { useUserStore, toDateStr } = await import('../src/store/userStore')
 const s = () => useUserStore.getState()
 
-// ── syncConfigured is off without VITE_LC_* env (Node has no import.meta.env) ──
-assert.equal(syncConfigured, false, 'sync disabled when unconfigured')
+// ── self-hosted /api/sync backend needs no client config ──
+assert.equal(syncConfigured, true, 'sync always available with same-origin API')
 
 // ── v1 → v2 migration adds syncAccounts ──
 assert.deepEqual(s().syncAccounts, {}, 'migration fills empty syncAccounts')
