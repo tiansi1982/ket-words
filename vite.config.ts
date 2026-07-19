@@ -31,7 +31,18 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
-        runtimeCaching: [],
+        runtimeCaching: [
+          // 预生成发音音频：首次播放后缓存，之后离线可用
+          {
+            urlPattern: /\/audio\/[0-9a-f]+\.mp3$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'tts-audio',
+              expiration: { maxEntries: 4000, purgeOnQuotaError: true },
+              cacheableResponse: { statuses: [200] },
+            },
+          },
+        ],
       },
     }),
   ],
