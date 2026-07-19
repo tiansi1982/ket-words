@@ -73,6 +73,10 @@ class WebSpeechAssessment implements SpeechAssessmentService {
         reject(new Error('SpeechRecognition not supported'))
         return
       }
+      // A previous session that never ended on its own (iOS engines can stay
+      // wedged past our timeout, holding the mic) blocks any new start() and
+      // can freeze the whole page — kill it before starting a fresh one
+      this.cancel()
       const rec = new RC()
       this.recognition = rec
       rec.lang = lang
@@ -87,6 +91,13 @@ class WebSpeechAssessment implements SpeechAssessmentService {
         settled = true
         clearTimeout(stopTimer)
         clearTimeout(graceTimer)
+        // However we settle, tear the session down for real: stop() is only a
+        // polite request — a session that ignored it keeps the mic open and
+        // wedges the page (seen on iOS)
+        try {
+          rec.abort()
+        } catch { /* already gone */ }
+        if (this.recognition === rec) this.recognition = null
         fn()
       }
 
@@ -127,13 +138,20 @@ class WebSpeechAssessment implements SpeechAssessmentService {
         }
       }, LISTEN_TIMEOUT_MS)
 
-      rec.start()
+      try {
+        rec.start()
+      } catch (err) {
+        settle(() => reject(err instanceof Error ? err : new Error(String(err))))
+      }
     })
   }
 
   cancel(): void {
-    this.recognition?.abort()
+    const rec = this.recognition
     this.recognition = null
+    try {
+      rec?.abort()
+    } catch { /* already gone */ }
   }
 }
 
