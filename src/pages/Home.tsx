@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { shuffled } from '@/lib/word-utils'
+import { useOnline } from '@/lib/use-online'
 import { pct } from '@/lib/utils'
 import ProfileSwitcher from '@/components/ProfileSwitcher'
 import ProgressBar from '@/components/ProgressBar'
@@ -46,6 +47,7 @@ export default function Home() {
   const navigate = useNavigate()
   const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getMasteredIds, getDueReviewIds, getStreak } = useUserStore()
   const { words, pickDailyWords } = useWordStore()
+  const online = useOnline()
 
   const masteredIds = getMasteredIds()
   const learningIds = new Set(
@@ -60,6 +62,7 @@ export default function Home() {
   const streak = getStreak()
 
   const handleStartDaily = () => {
+    if (!online) return // scoring needs the network; the button is disabled anyway
     const today = getTodayDate()
     if (currentSession?.date === today && !currentSession.completed) {
       navigate('/study')
@@ -125,15 +128,20 @@ export default function Home() {
         <div className="mt-6 w-full animate-fade-up [animation-delay:170ms]">
           <Button
             onClick={handleStartDaily}
-            disabled={todayDone}
+            disabled={todayDone || !online}
             variant={todayDone ? 'glass' : 'hero'}
             className={`h-16 w-full gap-2 rounded-[1.4rem] text-lg font-bold tracking-wide ${
               todayDone ? 'text-muted-foreground disabled:opacity-100' : ''
             }`}
           >
             {todayDone ? <Check className="size-5" /> : <BookOpen className="size-5" />}
-            {todayDone ? '今日已完成 ✓' : '开始今日学习'}
+            {todayDone ? '今日已完成 ✓' : online ? '开始今日学习' : '没有网络，暂时无法学习'}
           </Button>
+          {!online && !todayDone && (
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              📡 学习需要联网给发音打分，请先连上网络
+            </p>
+          )}
         </div>
 
         {/* Secondary entries */}
@@ -143,7 +151,7 @@ export default function Home() {
             tileClass="bg-linear-to-br from-orange-400 to-red-500"
             label="错题练习"
             badge={errorBank.length}
-            disabled={errorBank.length === 0}
+            disabled={errorBank.length === 0 || !online}
             onClick={() => navigate('/error-bank')}
           />
           <div className="mx-4 h-px bg-border/60" />

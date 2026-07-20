@@ -11,8 +11,22 @@ import type { Word } from '@/types'
 
 type SpeakState = 'idle' | 'recording' | 'recorded'
 
+// How the child left the card — parents use this to decide error-bank handling
+export type SpeakOutcome = 'passed' | 'failed' | 'skipped'
+
 // Don't let a walked-away-from mic run forever
 const MAX_RECORD_MS = 30000
+
+// Reading below this score counts as a miss and goes to the error bank
+export const PASS_SCORE = 90
+
+// Skipping is for stuck/broken situations only: the skip button stays hidden
+// unless an error occurred, or this much time passed without a finished take
+const STUCK_SKIP_MS = 30000
+
+// Scoring is a required part of the loop (no offline mode): each unscored take
+// asks for a retry, and this many failures aborts the session back home
+const MAX_SCORE_FAILS = 3
 
 // Listening = the word followed by its example sentence
 export const speakWordAndExample = (w: Word) => tts.speakAll([baseWord(w.word), w.example])
@@ -39,28 +53,31 @@ function scoreColor(score: number): string {
 }
 
 function scoreCheer(score: number): string {
-  if (score >= 80) return '🎉 读得真棒！'
-  if (score >= 60) return '👍 不错，再练练更好'
-  return '💪 多跟读几遍试试'
+  if (score >= PASS_SCORE) return '🎉 读得真棒！'
+  if (score >= 60) return `👍 不错，不过没到 ${PASS_SCORE} 分，会记入错题本，再录一遍试试`
+  return `💪 没到 ${PASS_SCORE} 分，会记入错题本，多跟读几遍试试`
 }
 
 interface SentenceSpeakProps {
   word: Word
   continueLabel: string // e.g. '继续拼写 →' / '下一个 →'
-  skipLabel: string // shown before a recording finishes, e.g. '跳过发音'
-  onContinue: () => void
+  skipLabel: string // emergency-exit label, e.g. '跳过发音'
+  onContinue: (outcome: SpeakOutcome) => void
+  onAbort: () => void // scoring service failed repeatedly — leave the session
 }
 
 // Sentence read-aloud practice card: shows the example sentence, records the
 // child reading it, and plays the recording back for comparison against the
 // TTS reading. When Tencent SOE is configured, the same recording is also
 // scored in the cloud (overall + per word). Used by Study and ErrorBank.
-export default function SentenceSpeak({ word, continueLabel, skipLabel, onContinue }: SentenceSpeakProps) {
+export default function SentenceSpeak({ word, continueLabel, skipLabel, onContinue, onAbort }: SentenceSpeakProps) {
   const [state, setState] = useState<SpeakState>('idle')
   const [error, setError] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
   const [scoring, setScoring] = useState(false)
   const [soeResult, setSoeResult] = useState<SoeResult | null>(null)
+  const [stuck, setStuck] = useState(false)
+  const [scoreFails, setScoreFails] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const stopTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const soePromise = useRef<Promise<SoeSession | null> | null>(null)
@@ -76,6 +93,11 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
       clearTimeout(stopTimer.current)
       void soePromise.current?.then((s) => s?.cancel())
     }
+  }, [])
+
+  useEffect(() => {
+    const t = setTimeout(() => setStuck(true), STUCK_SKIP_MS)
+    return () => clearTimeout(t)
   }, [])
 
   // Revoke each recording's object URL when it's replaced or on unmount
@@ -99,12 +121,17 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
       void soe?.then((s) => s?.cancel())
       return
     }
+    // Scoring is mandatory: a take without a score (SOE misconfigured, network
+    // drop, service down) counts as a failed attempt and asks for a retry
+    let result: SoeResult | null = null
     const session = await soe
     if (session) {
       setScoring(true)
-      setSoeResult(await session.finish())
+      result = await session.finish()
       setScoring(false)
     }
+    setSoeResult(result)
+    if (!result) setScoreFails((n) => n + 1)
   }, [])
 
   const handleRecord = useCallback(async () => {
@@ -135,13 +162,32 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
     void el.play()
   }
 
-  const handleContinue = () => {
+  const cleanup = () => {
     recorder.cancel()
     clearTimeout(stopTimer.current)
     dropSoe()
     tts.stop()
-    onContinue()
   }
+
+  const handleContinue = (outcome: SpeakOutcome) => {
+    cleanup()
+    onContinue(outcome)
+  }
+
+  const handleAbort = () => {
+    cleanup()
+    onAbort()
+  }
+
+  // Continuing is only offered once a take has a score
+  const recordedOutcome: SpeakOutcome =
+    soeResult && soeResult.score >= PASS_SCORE ? 'passed' : 'failed'
+
+  // Skipping is reserved for stuck/broken situations
+  const canSkip = !!error || stuck
+
+  // Too many unscored takes: explain and end the session
+  const scoreBroken = scoreFails >= MAX_SCORE_FAILS
 
   return (
     <div className="flex flex-col gap-5 flex-1 animate-fade-up">
@@ -160,8 +206,9 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         {/* Record button */}
         <button
           onClick={handleRecord}
+          disabled={scoreBroken}
           aria-label={state === 'recording' ? '停止录音' : '开始录音'}
-          className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 ${
+          className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 disabled:opacity-40 ${
             state === 'recording'
               ? 'bg-red-500 text-white scale-110 animate-mic-ring'
               : 'btn-hero text-white hover:scale-105 active:scale-95'
@@ -171,21 +218,31 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
             ? <Square className="h-8 w-8 fill-current" />
             : <Mic className="h-8 w-8" />}
         </button>
-        <p className="text-xs text-muted-foreground">
-          {error || (
-            <>
-              {state === 'idle' && '点击麦克风，读出整个句子'}
-              {state === 'recording' && '正在录音…读完后再点一下停止'}
-              {state === 'recorded' && (
-                scoring
-                  ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> 正在打分…</span>
-                  : soeResult
-                    ? scoreCheer(soeResult.score)
-                    : '🎧 听听自己读的，和标准发音比一比'
-              )}
-            </>
-          )}
-        </p>
+        {scoreBroken ? (
+          <p className="text-sm font-medium leading-relaxed text-destructive">
+            😞 已经连续 {MAX_SCORE_FAILS} 次没打上分。
+            <br />
+            可能是网络不稳定，或评分服务暂时有问题。
+            <br />
+            这次学习先中断，进度已保存，稍后再回来继续吧。
+          </p>
+        ) : (
+          <p className="text-xs text-muted-foreground">
+            {error || (
+              <>
+                {state === 'idle' && '点击麦克风，读出整个句子'}
+                {state === 'recording' && '正在录音…读完后再点一下停止'}
+                {state === 'recorded' && (
+                  scoring
+                    ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> 正在打分…</span>
+                    : soeResult
+                      ? scoreCheer(soeResult.score)
+                      : `😕 打分没成功（第 ${scoreFails}/${MAX_SCORE_FAILS} 次），可能是网络不太稳定，请再录一遍`
+                )}
+              </>
+            )}
+          </p>
+        )}
         {state === 'recorded' && soeResult && !scoring && (
           <div className="flex flex-col gap-2 animate-fade-up">
             <div className="flex items-center justify-center gap-3">
@@ -193,7 +250,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
                 value={soeResult.score}
                 className="h-2 flex-1"
                 barClassName={`duration-700 ${
-                  soeResult.score >= 80
+                  soeResult.score >= PASS_SCORE
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500'
                     : soeResult.score >= 60
                       ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
@@ -224,20 +281,44 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
       </div>
 
-      <div className="flex gap-3">
-        {state === 'recorded' && (
-          <Button variant="glass" className="h-13 flex-1 gap-1.5" onClick={handleRecord}>
+      {scoreBroken ? (
+        <Button variant="hero" className="h-13 w-full" onClick={handleAbort}>
+          返回主界面
+        </Button>
+      ) : state === 'recorded' ? (
+        <div className="flex gap-3">
+          <Button
+            variant={soeResult ? 'glass' : 'hero'}
+            className="h-13 flex-1 gap-1.5"
+            disabled={scoring}
+            onClick={handleRecord}
+          >
             <Mic className="h-4 w-4" /> 再录一遍
           </Button>
-        )}
-        <Button variant="hero" className="h-13 flex-1 gap-1.5" onClick={handleContinue}>
-          {state === 'recorded' ? continueLabel : (
-            <>
-              <MicOff className="h-4 w-4" /> {skipLabel}
-            </>
+          {soeResult && !scoring && (
+            <Button
+              variant="hero"
+              className="h-13 flex-1 gap-1.5"
+              onClick={() => handleContinue(recordedOutcome)}
+            >
+              {continueLabel}
+            </Button>
           )}
-        </Button>
-      </div>
+        </div>
+      ) : canSkip ? (
+        <div className="flex flex-col items-center gap-1.5">
+          <Button
+            variant="glass"
+            className="h-13 w-full gap-1.5 text-muted-foreground"
+            onClick={() => handleContinue('skipped')}
+          >
+            <MicOff className="h-4 w-4" /> {skipLabel}
+          </Button>
+          <p className="text-xs text-muted-foreground/70">跳过会把这个单词记入错题本哦</p>
+        </div>
+      ) : (
+        <p className="text-center text-xs text-muted-foreground/70">读完句子才能继续哦</p>
+      )}
     </div>
   )
 }

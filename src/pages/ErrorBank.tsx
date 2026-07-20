@@ -4,8 +4,9 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
+import { useOnline } from '@/lib/use-online'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
-import SentenceSpeak from '@/components/SentenceSpeak'
+import SentenceSpeak, { type SpeakOutcome } from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
@@ -13,22 +14,43 @@ import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
 import type { Word } from '@/types'
 
-type Phase = 'quiz' | 'result' | 'speak'
+// Mirrors the daily-study flow: read the sentence aloud first, then spell.
+// A word leaves the error bank only when both parts pass in the same round.
+type Phase = 'speak' | 'quiz' | 'result'
 
 const hasSpeech = recorder.isSupported()
+const initialPhase: Phase = hasSpeech ? 'speak' : 'quiz'
 
 export default function ErrorBank() {
   const navigate = useNavigate()
   const { errorBank, progress, updateProgress, removeFromErrorBank } = useUserStore()
   const { getErrorWords, checkSpelling } = useWordStore()
+  const online = useOnline()
 
   // Snapshot at mount: answering correctly removes words from errorBank in the
   // store, and a live-derived list would shift under the current index
   const [words] = useState<Word[]>(() => getErrorWords(errorBank))
   const [index, setIndex] = useState(0)
-  const [phase, setPhase] = useState<Phase>('quiz')
+  const [phase, setPhase] = useState<Phase>(initialPhase)
   const [input, setInput] = useState('')
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
+  const [speakFailed, setSpeakFailed] = useState(false)
+
+  // Scoring needs the network and there's no offline mode — block until back online
+  if (!online) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
+          <div className="text-5xl">📡</div>
+          <p className="font-semibold">没有网络连接</p>
+          <p className="text-sm text-muted-foreground">错题练习需要联网给发音打分，请连上网络后再试。</p>
+          <Button variant="hero" className="h-11 px-7" onClick={() => navigate('/')}>
+            返回首页
+          </Button>
+        </div>
+      </div>
+    )
+  }
 
   if (words.length === 0) {
     return (
@@ -65,31 +87,32 @@ export default function ErrorBank() {
 
   const currentWord = words[index]
 
+  // Skipped or scored below the bar: the word counts as missed this round, so
+  // the spelling that follows can no longer clear it out of the error bank
+  const handleSpeakDone = (outcome: SpeakOutcome) => {
+    if (currentWord && outcome !== 'passed') {
+      setSpeakFailed(true)
+      updateProgress(currentWord.id, false)
+    }
+    setPhase('quiz')
+  }
+
   const handleSubmit = () => {
     if (!currentWord) return
     const correct = checkSpelling(input, currentWord)
     setLastCorrect(correct)
     setPhase('result')
     updateProgress(currentWord.id, correct)
-    if (correct) removeFromErrorBank(currentWord.id)
+    if (correct && !speakFailed) removeFromErrorBank(currentWord.id)
     tts.speakAll([baseWord(currentWord.word), currentWord.example])
   }
 
   const handleNext = () => {
     setIndex((i) => i + 1)
-    setPhase('quiz')
+    setPhase(initialPhase)
     setInput('')
     setLastCorrect(null)
-  }
-
-  // After the result, practice reading the sentence aloud (when supported)
-  const handleAfterResult = () => {
-    if (hasSpeech) {
-      tts.stop()
-      setPhase('speak')
-    } else {
-      handleNext()
-    }
+    setSpeakFailed(false)
   }
 
   return (
@@ -100,6 +123,17 @@ export default function ErrorBank() {
         className="mb-7 h-1.5"
         barClassName="bg-gradient-to-r from-red-400 to-rose-500 duration-300"
       />
+
+      {phase === 'speak' && currentWord && (
+        <SentenceSpeak
+          key={currentWord.id}
+          word={currentWord}
+          continueLabel="继续拼写 →"
+          skipLabel="跳过跟读"
+          onContinue={handleSpeakDone}
+          onAbort={() => navigate('/')}
+        />
+      )}
 
       {phase === 'quiz' && currentWord && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
@@ -146,8 +180,11 @@ export default function ErrorBank() {
               <span className="text-4xl font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => tts.speakAll([baseWord(currentWord.word), currentWord.example])} />
             </div>
-            {lastCorrect && (
+            {lastCorrect && !speakFailed && (
               <p className="mt-2.5 text-sm font-semibold text-green-600 dark:text-green-400">已从错题本移除 ✓</p>
+            )}
+            {lastCorrect && speakFailed && (
+              <p className="mt-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400">拼写正确，但跟读没过关，仍留在错题本</p>
             )}
             {!lastCorrect && (
               <p className="mt-2.5 text-sm text-muted-foreground">
@@ -165,21 +202,11 @@ export default function ErrorBank() {
             >
               <Trash2 className="h-4 w-4" /> 删除错题
             </Button>
-            <Button variant="hero" className="h-13 flex-1" onClick={handleAfterResult}>
-              {hasSpeech ? '跟读句子 →' : index + 1 < words.length ? '下一个 →' : '完成 🎉'}
+            <Button variant="hero" className="h-13 flex-1" onClick={handleNext}>
+              {index + 1 < words.length ? '下一个 →' : '完成 🎉'}
             </Button>
           </div>
         </div>
-      )}
-
-      {phase === 'speak' && currentWord && (
-        <SentenceSpeak
-          key={currentWord.id}
-          word={currentWord}
-          continueLabel={index + 1 < words.length ? '下一个 →' : '完成 🎉'}
-          skipLabel="跳过跟读"
-          onContinue={handleNext}
-        />
       )}
     </div>
   )

@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { recorder } from '@/services/recorder'
+import { useOnline } from '@/lib/use-online'
 import { displayWord, spellingHint } from '@/lib/word-utils'
-import SentenceSpeak, { ExampleSentence, speakWordAndExample } from '@/components/SentenceSpeak'
+import SentenceSpeak, { ExampleSentence, speakWordAndExample, type SpeakOutcome } from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
@@ -19,6 +20,7 @@ export default function Study() {
   const navigate = useNavigate()
   const { currentSession, progress, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
+  const online = useOnline()
 
   // Session cursor lives in the persisted store so leaving mid-session resumes here
   const index = currentSession?.currentIndex ?? 0
@@ -46,6 +48,16 @@ export default function Study() {
     setInput('')
   }
 
+  // Skipped or scored below the bar: the word counts as missed so it lands in
+  // the error bank and stays in the to-learn pool
+  const handleSpeakDone = (outcome: SpeakOutcome) => {
+    if (currentWord && outcome !== 'passed') {
+      updateProgress(currentWord.id, false)
+      addToErrorBank(currentWord.id)
+    }
+    goToQuiz()
+  }
+
   const handleSubmit = () => {
     if (!currentWord) return
     const correct = checkSpelling(input, currentWord)
@@ -61,6 +73,23 @@ export default function Study() {
     setPhase('show')
     setInput('')
     setLastCorrect(null)
+  }
+
+  // Scoring needs the network and there's no offline mode — block until back online.
+  // Session state is persisted, so returning later resumes at the same word.
+  if (!online) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
+          <div className="text-5xl">📡</div>
+          <p className="font-semibold">没有网络连接</p>
+          <p className="text-sm text-muted-foreground">学习需要联网给发音打分，请连上网络后再继续。进度已保存。</p>
+          <Button variant="hero" className="h-11 px-7" onClick={() => navigate('/')}>
+            返回首页
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   if (!currentSession || total === 0) {
@@ -132,7 +161,8 @@ export default function Study() {
           word={currentWord}
           continueLabel="继续拼写 →"
           skipLabel="跳过发音"
-          onContinue={goToQuiz}
+          onContinue={handleSpeakDone}
+          onAbort={() => navigate('/')}
         />
       )}
 
