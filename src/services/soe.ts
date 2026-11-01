@@ -68,6 +68,49 @@ export function parseSoeResult(result: any): SoeResult | null {
   return { score: Math.max(0, Math.min(100, Math.round(score))), words }
 }
 
+// ── Shared AudioContext (R6) ──
+// iOS only lets an AudioContext produce audio when it was created or resumed
+// inside a user gesture, and caps how many a page may create. So: one context
+// for the page, unlocked from the mic button's click handler before any await,
+// reused by every scoring session and never closed.
+let sharedCtx: AudioContext | null = null
+
+function audioContextCtor(): typeof AudioContext | null {
+  const g = globalThis as unknown as {
+    AudioContext?: typeof AudioContext
+    webkitAudioContext?: typeof AudioContext
+  }
+  return g.AudioContext ?? g.webkitAudioContext ?? null
+}
+
+// Call synchronously from a user-gesture handler
+export function unlockAudioContext(): void {
+  const Ctor = audioContextCtor()
+  if (!Ctor) return
+  if (!sharedCtx || sharedCtx.state === 'closed') {
+    try {
+      sharedCtx = new Ctor()
+    } catch {
+      sharedCtx = null
+      return
+    }
+  }
+  if (sharedCtx.state !== 'running') void sharedCtx.resume().catch(() => undefined)
+}
+
+// The shared context, resumed if needed; throws when Web Audio is unavailable
+export async function acquireAudioContext(): Promise<AudioContext> {
+  unlockAudioContext()
+  if (!sharedCtx) throw new Error('Web Audio unavailable')
+  if (sharedCtx.state !== 'running') {
+    await sharedCtx.resume().catch(() => undefined)
+    if ((sharedCtx.state as string) !== 'running') {
+      console.warn(`[soe] AudioContext is ${sharedCtx.state}; mic audio may not reach the scorer`)
+    }
+  }
+  return sharedCtx
+}
+
 // 501 from the Pages Function (or no Functions at all) means "not set up" —
 // remember that and stop asking for this page load
 let unavailable = false
@@ -126,7 +169,6 @@ async function fetchSignedUrl(refText: string): Promise<SignResult> {
 
 class WsSoeSession implements SoeSession {
   private ws: WebSocket | null = null
-  private ctx: AudioContext | null = null
   private processor: ScriptProcessorNode | null = null
   private source: MediaStreamAudioSourceNode | null = null
   // Audio captured before the socket opens is queued, not dropped
@@ -152,8 +194,8 @@ class WsSoeSession implements SoeSession {
     const url = signed.url
 
     // Tap the mic first so no audio is lost while the socket connects
-    const ctx = new AudioContext()
-    this.ctx = ctx
+    const ctx = await acquireAudioContext()
+    if (this.closed) return { failure: 'error' }
     this.source = ctx.createMediaStreamSource(this.stream)
     this.processor = ctx.createScriptProcessor(4096, 1, 1)
     this.processor.onaudioprocess = (e) => {
@@ -212,8 +254,7 @@ class WsSoeSession implements SoeSession {
     this.source?.disconnect()
     this.processor = null
     this.source = null
-    void this.ctx?.close().catch(() => undefined)
-    this.ctx = null
+    // the AudioContext is shared page-wide and never closed here
     if (this.ws && this.ws.readyState <= WebSocket.OPEN) this.ws.close()
     this.ws = null
     this.queue = []

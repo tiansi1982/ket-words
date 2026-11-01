@@ -88,3 +88,32 @@ assert.equal(parseSoeResult({ SuggestedScore: 'nope' }), null)
 }
 
 console.log('✅ soe assertions passed')
+
+// ── 4. shared AudioContext: one instance per page, resumed, recreated only when closed (R6) ──
+{
+  class FakeAudioContext {
+    static created = 0
+    static resumes = 0
+    state: 'suspended' | 'running' | 'closed' = 'suspended'
+    constructor() { FakeAudioContext.created++ }
+    async resume() { FakeAudioContext.resumes++; if (this.state !== 'closed') this.state = 'running' }
+    async close() { this.state = 'closed' }
+  }
+  ;(globalThis as unknown as { AudioContext: unknown }).AudioContext = FakeAudioContext
+  const { unlockAudioContext, acquireAudioContext } = await import('../src/services/soe')
+  unlockAudioContext()
+  unlockAudioContext()
+  assert.equal(FakeAudioContext.created, 1, 'unlock twice → one context')
+  const a = await acquireAudioContext()
+  const b = await acquireAudioContext()
+  assert.strictEqual(a, b, 'sessions share the context')
+  assert.equal((a as unknown as FakeAudioContext).state, 'running')
+  assert.equal(FakeAudioContext.created, 1)
+  await (a as unknown as FakeAudioContext).close()
+  const c = await acquireAudioContext()
+  assert.notStrictEqual(c, a, 'a closed context is replaced')
+  assert.equal(FakeAudioContext.created, 2)
+  delete (globalThis as unknown as { AudioContext?: unknown }).AudioContext
+  assert.ok(FakeAudioContext.resumes >= 1)
+}
+console.log('✅ shared AudioContext assertions passed')

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
-import { startSoeSession, type SoeStart, type SoeResult } from '@/services/soe'
+import { startSoeSession, unlockAudioContext, type SoeStart, type SoeResult } from '@/services/soe'
 import { displayWord, findInExample } from '@/lib/word-utils'
 import { PASS_SCORE, speakWordAndExample } from '@/lib/speak'
 import ProgressBar from '@/components/ProgressBar'
@@ -139,6 +139,9 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
       void handleStop()
       return
     }
+    // Still inside the tap: iOS needs the AudioContext unlocked here, before
+    // the awaits below leave the gesture
+    unlockAudioContext()
     setError('')
     setSoeResult(null)
     dropSoe()
