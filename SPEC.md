@@ -43,7 +43,7 @@ profileData     Record<id, ProfileData>（非当前孩子的数据快照，不�
 syncAccounts    Record<id, SyncAccount>（云同步账号，按 profile 绑定，可空）
 ── 以下为当前孩子的 ProfileData，直接放在顶层（页面代码无感知）──
 dailyGoal       每日目标单词数，默认 20，可选 10/20/30/50
-currentSession  { date, wordIds[], currentIndex, completed }
+currentSession  { date, wordIds[], currentIndex, completed, results{ wordId → { speak, speakScore, spelled } } }
 progress        Record<wordId, WordProgress>
 errorBank       number[]（错题 ID 列表）
 dailyLog        Record<YYYY-MM-DD, number>（每天答题次数，用于打卡/统计）
@@ -232,10 +232,14 @@ lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
 - 更新 progress：答对 +1 correctCount，答错 +1 wrongCount；答错时加入错题本
 - 按钮：最后一词显示"完成学习 🎉"，其余显示"下一个 →"
 
-#### 完成页面
-- 显示 🎉 + "今日学习完成！" + 总词数
-- "返回首页"按钮
-- 触发 `completeDailySession()`（通过 useEffect，非 render 内调用）
+#### 完成页面（总结，R7）
+- 🎉 "今日学习完成！" + "共 N 个单词 · 拼写对 X 个 · 跟读过关 Y 个"
+- "明天待复习 N 个"卡片（统计到明天为止到期、未毕业的已掌握词；0 个时提示明天是新词）；
+  今天进错题本的词数
+- 本次每个词一行：单词 + 释义，右侧跟读分数胶囊（通过绿 / 未过黄 / 跳过灰）和拼写 ✅/❌；
+  点任意一行重新朗读单词 + 例句。数据来自 `currentSession.results`（每词的 speak / speakScore / spelled，
+  跟读与拼写阶段分别写入），R7 之前保存的 session 没有该字段，只列单词
+- "返回首页"按钮；触发 `completeDailySession()`（通过 useEffect，非 render 内调用）
 
 ---
 

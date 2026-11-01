@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult } from '@/types'
 import { pruneSessionWords } from '@/lib/session'
 import { remapProfileData } from '@/lib/word-aliases'
 
@@ -22,6 +22,8 @@ interface UserStore extends UserState {
   // Drop session words the dictionary no longer has (e.g. after a word-list
   // cleanup) so a stale session can't strand the study page on a missing card
   pruneSession: (isKnown: (wordId: number) => boolean) => void
+  // Remember how a word went in today's session (feeds the summary page)
+  recordSessionResult: (wordId: number, patch: Partial<SessionResult>) => void
   completeDailySession: () => void
   updateProgress: (wordId: number, correct: boolean) => void
   // Read-aloud result for a word (does not touch counts/SRS — pair it with
@@ -235,6 +237,19 @@ export const useUserStore = create<UserStore>()(
           if (pruned === state.currentSession) return state
           // Nothing left to study: clear it so the home page picks a fresh set
           return { currentSession: pruned.wordIds.length ? pruned : null }
+        }),
+
+      recordSessionResult: (wordId, patch) =>
+        set((state) => {
+          const s = state.currentSession
+          if (!s) return state
+          const results = s.results ?? {}
+          return {
+            currentSession: {
+              ...s,
+              results: { ...results, [wordId]: { ...(results[wordId] ?? {}), ...patch } },
+            },
+          }
         }),
 
       completeDailySession: () =>

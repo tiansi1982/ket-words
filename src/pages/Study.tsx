@@ -6,6 +6,7 @@ import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
 import { displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
+import SessionSummary from '@/components/SessionSummary'
 import { speakWordAndExample } from '@/lib/speak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -33,7 +34,7 @@ const hasSpeech = recorder.isSupported()
 
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, progress, updateProgress, recordSpeak, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
+  const { currentSession, progress, updateProgress, recordSpeak, recordSessionResult, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
 
@@ -76,6 +77,7 @@ export default function Study() {
   const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
     if (currentWord) {
       recordSpeak(currentWord.id, score, outcome === 'passed')
+      recordSessionResult(currentWord.id, { speak: outcome, speakScore: score })
       if (outcome !== 'passed') {
         updateProgress(currentWord.id, false)
         addToErrorBank(currentWord.id)
@@ -90,6 +92,7 @@ export default function Study() {
     setLastCorrect(correct)
     setPhase('result')
     updateProgress(currentWord.id, correct)
+    recordSessionResult(currentWord.id, { spelled: correct })
     if (!correct) addToErrorBank(currentWord.id)
     speakWordAndExample(currentWord)
   }
@@ -131,22 +134,7 @@ export default function Study() {
     )
   }
 
-  if (finished) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-        <div className="text-7xl animate-pop-in">🎉</div>
-        <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">今日学习完成！</h2>
-        <p className="text-muted-foreground animate-fade-up [animation-delay:80ms]">共学习了 {total} 个单词</p>
-        <Button
-          variant="hero"
-          className="mt-2 h-13 px-9 text-base animate-fade-up [animation-delay:150ms]"
-          onClick={() => navigate('/')}
-        >
-          返回首页
-        </Button>
-      </div>
-    )
-  }
+  if (finished) return <SessionSummary session={currentSession} />
 
   return (
     <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">

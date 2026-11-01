@@ -39,11 +39,19 @@ export interface WordProgress {
 // How the child left the read-aloud card
 export type SpeakOutcome = 'passed' | 'failed' | 'skipped'
 
+// What happened to one word in today's session (R7 summary page)
+export interface SessionResult {
+  speak?: SpeakOutcome
+  speakScore?: number | null // null = skipped / unscored
+  spelled?: boolean
+}
+
 export interface DailySession {
   date: string // YYYY-MM-DD (local time)
   wordIds: number[]
   currentIndex: number // resume position within the session
   completed: boolean
+  results?: Record<number, SessionResult> // absent on sessions from before R7
 }
 
 export interface ProfileMeta {

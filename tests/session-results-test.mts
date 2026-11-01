@@ -38,3 +38,19 @@ s().updateProgress(6, false)
 assert.equal(s().progress[6].srsLevel, 0)
 
 console.log('✅ session result assertions passed')
+
+// ── recordSessionResult (R7): per-word results merge into today's session ──
+s().startDailySession([1, 2])
+s().recordSessionResult(1, { speak: 'failed', speakScore: 70 })
+s().recordSessionResult(1, { spelled: true })
+assert.deepEqual(s().currentSession!.results, { 1: { speak: 'failed', speakScore: 70, spelled: true } }, 'patches merge per word')
+s().recordSessionResult(2, { speak: 'skipped', speakScore: null })
+s().recordSessionResult(2, { spelled: false })
+assert.deepEqual(s().currentSession!.results![2], { speak: 'skipped', speakScore: null, spelled: false })
+s().advanceSession()
+assert.ok(s().currentSession!.results, 'advancing keeps results')
+useUserStore.setState({ currentSession: null })
+s().recordSessionResult(1, { spelled: true })
+assert.equal(s().currentSession, null, 'no session → no-op')
+
+console.log('✅ session summary assertions passed')
