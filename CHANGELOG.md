@@ -1,0 +1,48 @@
+# 更新日志
+
+按日期倒序；每条对应一个或一组提交。编号（R/F/E）见 [ROADMAP.md](./ROADMAP.md)，P/B/D/E 见 [BACKLOG.md](./BACKLOG.md)。
+
+## 2026-11-01
+
+**上线前注意**：本批包含 D1 迁移 `migrations/0002_soe_quota.sql`，合并到 main 前先执行
+`npx wrangler d1 migrations apply ket-words-sync --remote`。
+
+- **R1** `/api/soe-url` 加令牌鉴权（云同步 session 或新的 `POST /api/device` 匿名设备令牌）、只签词库例句、
+  按主体与 IP 每日配额（默认 300 / 1500），超额返回 429，前端显示"今天的发音练习次数已用完"
+- **R2** 学习页对词库里不存在的 wordId 不再卡死：进入时剔除并保持光标
+- **R3** 词库去重 1598 → 1574（G 区重复导入的 24 条），旧 ID 通过 `src/lib/word-aliases.ts` 并入保留 ID
+  （persist v3 迁移 + 同步合并时处理），删除 20 个孤儿音频
+- **R4** `scripts/validate-words.mjs` 接入 `npm test`；修正 36 条格式错误的音标（词典碎片、方括号窄式转写、澳音）
+- **R5** 词条新增 `forms`（不规则变形），16 条例句恢复高亮；校验脚本要求每条例句都能找到目标词
+- **R6** 页面共用一个 AudioContext，在点击麦克风的手势内解锁（iOS 评分收不到音频的隐患）
+- **R7** 学习完成总结页：每词的跟读分数与拼写对错、点行朗读、明天待复习数、今日进错题本数
+- **R8** 学习卡片顶部标签：复习 / 学习中 / 新词 + 上次学习距今天数
+- **R13** lint 清零、移除未用的 `tw-animate-css`、`tsx` 进 devDependencies
+- **R14** 明确"一词两题"计分口径；`WordProgress` 新增 `speakFailCount` / `lastSpeakScore`
+- **E1** GitHub Actions CI：lint → test → build
+- 文档：新增 ROADMAP.md、本文件；README / SPEC / BACKLOG 与代码重新对齐
+
+## 2026-07-19
+
+- 严格跟读模式：评分必经，跳过按钮只在出错或卡住时出现，没过关记错进错题本；错题练习改为先跟读后拼写，两项都过才移出
+- 自建云同步后端（Cloudflare Pages Functions + D1）替代停止注册的 LeanCloud，错误码兼容
+- 预生成神经语音（edge-tts 英式 Sonia）优先播放，Web Speech 退回
+- 腾讯智聆 SOE 云端发音评分（服务端签 WSS URL，浏览器直连流式送音频）
+- 跟读由 Web Speech 识别改为录音回放对比；真正的 PWA 图标；修复 iOS 识别超时后页面假死
+
+## 2026-07-18
+
+- **P3** LeanCloud 云同步（按档案绑定账号，无损合并）
+- **D1–D3** 数据策略：括号词条展示/判定、同义词判定、按总字母数分难度
+- Apple 风格 UI 重做
+
+## 2026-07-17
+
+- **P1** 间隔重复（1/3/7/15/30 天）；**P10** 多孩子档案；**P2 / P4–P9** 选词优先级、连续打卡、拼写提示、音标、统计增强、选择题同词性干扰项
+- 整句跟读 + 单词与例句连读
+- **B1–B6** 修复：错题练习跳词、括号词条拼不对、同义词判错、UTC 换日、中途退出丢进度、原地打乱词库
+- **E1–E8** 工程清理：无用依赖/文件、词库独立 chunk、404 与 Error Boundary、store 回归测试
+
+## 2026-06-21
+
+- 首版：1598 词库、每日学习（展示 → 跟读 → 拼写）、错题本、选择题、统计、PWA
