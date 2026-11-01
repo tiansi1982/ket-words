@@ -75,6 +75,28 @@ export async function requireSession(
   return { userId: row.user_id }
 }
 
+// 发音评测的调用主体：云同步账号（u:<user_id>）或匿名设备（d:<token>）。
+// 都对不上时返回 null。
+export async function resolvePrincipal(
+  request: Request,
+  db: D1Database
+): Promise<{ key: string } | null> {
+  const auth = request.headers.get('Authorization') ?? ''
+  const token = auth.startsWith('Bearer ') ? auth.slice(7).trim() : ''
+  if (!token) return null
+  const session = await db
+    .prepare('SELECT user_id FROM sessions WHERE token = ?')
+    .bind(token)
+    .first<SessionRow>()
+  if (session) return { key: `u:${session.user_id}` }
+  const device = await db
+    .prepare('SELECT token FROM devices WHERE token = ?')
+    .bind(token)
+    .first<{ token: string }>()
+  if (device) return { key: `d:${token}` }
+  return null
+}
+
 export interface Credentials {
   username: string
   password: string

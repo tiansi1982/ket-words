@@ -3,6 +3,12 @@
 // Tencent while the child reads; finish() returns the sentence score.
 // When the backend isn't configured (501) the feature reports unavailable
 // and speak practice stays pure record-and-compare.
+//
+// Every signing request carries a credential (R1): the active profile's sync
+// session when it has one, otherwise an anonymous device token. The server
+// meters both per day and answers 429 when today's budget is used up.
+import { useUserStore } from '@/store/userStore'
+import { cachedDeviceToken, clearDeviceToken, getDeviceToken } from '@/services/device'
 
 export interface SoeWordScore {
   word: string
@@ -19,6 +25,13 @@ export interface SoeSession {
   finish(): Promise<SoeResult | null>
   cancel(): void
 }
+
+// Why a session could not start: 'quota' = today's scoring budget is used up,
+// 'unavailable' = backend not set up, 'error' = network or anything else
+export type SoeStartFailure = 'quota' | 'unavailable' | 'error'
+export type SoeStart =
+  | { session: SoeSession; failure?: undefined; limit?: undefined }
+  | { session: null; failure: SoeStartFailure; limit?: number }
 
 const TARGET_RATE = 16000
 // Tencent's final result normally lands well under this after {"type":"end"}
@@ -59,22 +72,55 @@ export function parseSoeResult(result: any): SoeResult | null {
 // remember that and stop asking for this page load
 let unavailable = false
 
-async function fetchSignedUrl(refText: string): Promise<string | null> {
-  if (unavailable) return null
+async function soeToken(): Promise<string | null> {
+  const s = useUserStore.getState()
+  const account = s.syncAccounts[s.activeProfileId]
+  if (account && !account.invalid) return account.sessionToken
+  return getDeviceToken()
+}
+
+function postSignRequest(refText: string, token: string | null): Promise<Response> {
+  return fetch('/api/soe-url', {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ refText }),
+  })
+}
+
+type SignResult =
+  | { url: string; failure?: undefined; limit?: undefined }
+  | { url?: undefined; failure: SoeStartFailure; limit?: number }
+
+async function fetchSignedUrl(refText: string): Promise<SignResult> {
+  if (unavailable) return { failure: 'unavailable' }
   try {
-    const res = await fetch('/api/soe-url', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ refText }),
-    })
+    let token = await soeToken()
+    let res = await postSignRequest(refText, token)
+    if (res.status === 401) {
+      // A sync session the server has since dropped, or a device token it no
+      // longer knows: fall back to a fresh device token once
+      if (token && token === cachedDeviceToken()) clearDeviceToken()
+      token = await getDeviceToken()
+      if (token) res = await postSignRequest(refText, token)
+    }
+    if (res.status === 429) {
+      const body = (await res.json().catch(() => ({}))) as { limit?: unknown }
+      return { failure: 'quota', limit: typeof body.limit === 'number' ? body.limit : undefined }
+    }
     if (!res.ok) {
-      if (res.status === 501 || res.status === 404 || res.status === 405) unavailable = true
-      return null
+      if (res.status === 501 || res.status === 404 || res.status === 405) {
+        unavailable = true
+        return { failure: 'unavailable' }
+      }
+      return { failure: 'error' }
     }
     const { url } = (await res.json()) as { url?: string }
-    return url ?? null
+    return url ? { url } : { failure: 'error' }
   } catch {
-    return null
+    return { failure: 'error' }
   }
 }
 
@@ -98,9 +144,12 @@ class WsSoeSession implements SoeSession {
     this.refText = refText
   }
 
-  async start(): Promise<boolean> {
-    const url = await fetchSignedUrl(this.refText)
-    if (!url || this.closed) return false
+  // Resolves null when streaming has begun, otherwise why it could not
+  async start(): Promise<{ failure: SoeStartFailure; limit?: number } | null> {
+    const signed = await fetchSignedUrl(this.refText)
+    if (signed.failure) return { failure: signed.failure, limit: signed.limit }
+    if (this.closed) return { failure: 'error' }
+    const url = signed.url
 
     // Tap the mic first so no audio is lost while the socket connects
     const ctx = new AudioContext()
@@ -137,7 +186,7 @@ class WsSoeSession implements SoeSession {
     }
     ws.onerror = () => this.settle(null)
     ws.onclose = () => this.settle(this.finalResult)
-    return true
+    return null
   }
 
   private send(chunk: ArrayBuffer): void {
@@ -200,13 +249,16 @@ class WsSoeSession implements SoeSession {
 }
 
 // Starts scoring against refText for a mic stream that is already live.
-// Resolves null when SOE is unavailable — callers just skip scoring.
-export async function startSoeSession(stream: MediaStream, refText: string): Promise<SoeSession | null> {
+// A failed start says why, so the UI can tell "quota used up" from a glitch.
+export async function startSoeSession(stream: MediaStream, refText: string): Promise<SoeStart> {
   const session = new WsSoeSession(stream, refText)
   try {
-    return (await session.start()) ? session : null
+    const failed = await session.start()
+    if (!failed) return { session }
+    session.cancel()
+    return { session: null, failure: failed.failure, limit: failed.limit }
   } catch {
     session.cancel()
-    return null
+    return { session: null, failure: 'error' }
   }
 }

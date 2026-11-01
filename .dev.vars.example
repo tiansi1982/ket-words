@@ -4,3 +4,9 @@
 SOE_APP_ID=腾讯云账号APPID（控制台右上角「账号信息」，纯数字）
 SOE_SECRET_ID=AKIDxxxxxxxx
 SOE_SECRET_KEY=xxxxxxxx
+
+# 可选：评测配额（R1，默认值见 functions/api/_quota.ts）
+# SOE_DAILY_LIMIT=300            每个账号/设备每天
+# SOE_IP_DAILY_LIMIT=1500        每个来源 IP 每天
+# SOE_DEVICE_IP_DAILY_LIMIT=20   每个 IP 每天可新建的设备令牌数
+# SOE_QUOTA_TZ=Asia/Shanghai     配额按哪个时区的自然日重置

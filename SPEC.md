@@ -311,8 +311,18 @@ dueDate         下次复习日期 YYYY-MM-DD（本地时区）；null = 已巩�
 - 参数：`server_engine_type=16k_en`、`eval_mode=1`（整句）、`score_coeff=1.0`（儿童宽松模式）
 - 展示：总分进度条（≥80 绿 / ≥60 黄 / 其余红）+ 单词逐个着色 + 鼓励语；
   评分中显示"正在打分…"
-- 降级：环境变量未配置（Function 返回 501）或网络/评测失败时，静默退回纯录音对比，
-  不打扰孩子
+- 评分是必经环节（2026-07-19 家长要求的严格模式）：没拿到分数的一次录音算失败、提示重录；
+  连续 3 次拿不到分（未配置 501 / 网络 / 服务异常）则说明原因并中断本次学习，进度已保存；
+  离线时学习与错题页整页阻断
+- **鉴权与配额**（R1，2026-11）：`/api/soe-url` 必须带 `Authorization: Bearer <token>`——
+  已绑定云同步的档案用其 session token，其余设备用 `POST /api/device` 签发的匿名设备令牌
+  （存 localStorage `ket-words-device`，服务端 401 时自动重领一次）；`refText` 只接受词库里的例句；
+  按主体（`u:<账号>` / `d:<设备>`）与来源 IP 在 D1 `soe_quota` 表按北京时间自然日计数，
+  超过 `SOE_DAILY_LIMIT`（默认 300）或 `SOE_IP_DAILY_LIMIT`（默认 1500）返回 429，
+  前端显示"今天的发音练习次数已用完"并结束本次学习；设备令牌签发每 IP 每天
+  `SOE_DEVICE_IP_DAILY_LIMIT`（默认 20）个。建表见 `migrations/0002_soe_quota.sql`，
+  D1 未绑定时接口直接 500（宁可不签也不签无限额的 URL）。建议另在 Cloudflare 控制台
+  加 WAF 速率限制规则（如 `/api/*` 同 IP 每分钟 ≤ 30 次）作为最外层兜底
 - 配置：`SOE_APP_ID` / `SOE_SECRET_ID` / `SOE_SECRET_KEY`，生产用
   `npx wrangler pages secret put <NAME> --project-name ket-words`，
   本地开发复制 `.dev.vars.example` 为 `.dev.vars`（已 gitignore，同 `SecretKey.csv`）

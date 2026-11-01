@@ -5,12 +5,24 @@
 //
 // Env (set via `wrangler pages secret put` / dashboard, or .dev.vars locally):
 //   SOE_APP_ID, SOE_SECRET_ID, SOE_SECRET_KEY
+//
+// Abuse controls (R1): the caller must present a sync session token or a
+// device token (POST /api/device), refText must be one of our own example
+// sentences, and each principal / source IP gets a daily budget counted in
+// D1 (SOE_DAILY_LIMIT / SOE_IP_DAILY_LIMIT, see _quota.ts).
+import { resolvePrincipal } from './sync/_lib'
+import { type QuotaEnv, bumpQuota, clientIp, daysAgo, intEnv, purgeQuotaBefore, quotaDay } from './_quota'
+import words from '../../src/data/ket-words.json'
 
-interface SoeEnv {
+interface SoeEnv extends QuotaEnv {
   SOE_APP_ID?: string
   SOE_SECRET_ID?: string
   SOE_SECRET_KEY?: string
 }
+
+// Only our own example sentences may be scored — the list is small enough to
+// ship with the function
+const EXAMPLES = new Set((words as { example: string }[]).map((w) => w.example))
 
 const HOST = 'soe.cloud.tencent.com'
 
@@ -66,19 +78,46 @@ function json(status: number, body: unknown): Response {
   })
 }
 
-export async function onRequestPost(ctx: { request: Request; env: SoeEnv }): Promise<Response> {
-  const { SOE_APP_ID, SOE_SECRET_ID, SOE_SECRET_KEY } = ctx.env
+export async function onRequestPost(ctx: {
+  request: Request
+  env: SoeEnv
+  waitUntil?: (p: Promise<unknown>) => void
+}): Promise<Response> {
+  const { SOE_APP_ID, SOE_SECRET_ID, SOE_SECRET_KEY, DB } = ctx.env
   if (!SOE_APP_ID || !SOE_SECRET_ID || !SOE_SECRET_KEY) {
     return json(501, { error: 'soe not configured' })
   }
+  // Fail closed: without the quota table we would be handing out unmetered URLs
+  if (!DB) return json(500, { error: 'database not configured' })
+
   let refText: unknown
   try {
     ;({ refText } = (await ctx.request.json()) as { refText?: unknown })
   } catch {
     return json(400, { error: 'invalid json' })
   }
-  if (typeof refText !== 'string' || !refText.trim() || refText.length > 200) {
+  if (typeof refText !== 'string' || !EXAMPLES.has(refText.trim())) {
     return json(400, { error: 'invalid refText' })
   }
+
+  const principal = await resolvePrincipal(ctx.request, DB)
+  if (!principal) return json(401, { code: 401, error: 'missing or unknown token' })
+
+  const day = quotaDay(new Date(), ctx.env.SOE_QUOTA_TZ)
+  const limit = intEnv(ctx.env.SOE_DAILY_LIMIT, 300)
+  const ipLimit = intEnv(ctx.env.SOE_IP_DAILY_LIMIT, 1500)
+  const [used, usedByIp] = await Promise.all([
+    bumpQuota(DB, principal.key, day),
+    bumpQuota(DB, `ip:${clientIp(ctx.request)}`, day),
+  ])
+  if (used > limit || usedByIp > ipLimit) {
+    return json(429, { code: 429, error: 'daily quota exceeded', limit: used > limit ? limit : ipLimit })
+  }
+  // Occasionally drop counters older than a week
+  if (Math.random() < 0.02) {
+    const purge = purgeQuotaBefore(DB, daysAgo(7, new Date(), ctx.env.SOE_QUOTA_TZ)).catch(() => undefined)
+    if (ctx.waitUntil) ctx.waitUntil(purge)
+  }
+
   return json(200, await signSoeUrl(SOE_APP_ID, SOE_SECRET_ID, SOE_SECRET_KEY, refText.trim()))
 }

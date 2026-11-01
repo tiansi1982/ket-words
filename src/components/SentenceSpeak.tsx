@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
-import { startSoeSession, type SoeSession, type SoeResult } from '@/services/soe'
+import { startSoeSession, type SoeStart, type SoeResult } from '@/services/soe'
 import { baseWord, displayWord } from '@/lib/word-utils'
 import { PASS_SCORE, speakWordAndExample } from '@/lib/speak'
 import ProgressBar from '@/components/ProgressBar'
@@ -73,12 +73,14 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
   const [soeResult, setSoeResult] = useState<SoeResult | null>(null)
   const [stuck, setStuck] = useState(false)
   const [scoreFails, setScoreFails] = useState(0)
+  // Today's scoring budget is used up (server answered 429, R1)
+  const [quota, setQuota] = useState<{ limit?: number } | null>(null)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const stopTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
-  const soePromise = useRef<Promise<SoeSession | null> | null>(null)
+  const soePromise = useRef<Promise<SoeStart> | null>(null)
 
   const dropSoe = () => {
-    void soePromise.current?.then((s) => s?.cancel())
+    void soePromise.current?.then((s) => s.session?.cancel())
     soePromise.current = null
   }
 
@@ -86,7 +88,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
     return () => {
       recorder.cancel()
       clearTimeout(stopTimer.current)
-      void soePromise.current?.then((s) => s?.cancel())
+      void soePromise.current?.then((s) => s.session?.cancel())
     }
   }, [])
 
@@ -113,17 +115,21 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
     } catch {
       setError('录音失败，再试一次吧')
       setState('idle')
-      void soe?.then((s) => s?.cancel())
+      void soe?.then((s) => s.session?.cancel())
       return
     }
     // Scoring is mandatory: a take without a score (SOE misconfigured, network
     // drop, service down) counts as a failed attempt and asks for a retry
     let result: SoeResult | null = null
-    const session = await soe
-    if (session) {
+    const start = await soe
+    if (start?.session) {
       setScoring(true)
-      result = await session.finish()
+      result = await start.session.finish()
       setScoring(false)
+    } else if (start?.failure === 'quota') {
+      // Not the child's doing and retrying won't help today — stop here
+      setQuota({ limit: start.limit })
+      return
     }
     setSoeResult(result)
     if (!result) setScoreFails((n) => n + 1)
@@ -183,6 +189,8 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
 
   // Too many unscored takes: explain and end the session
   const scoreBroken = scoreFails >= MAX_SCORE_FAILS
+  // Either way the session can't continue today
+  const blocked = scoreBroken || quota !== null
 
   return (
     <div className="flex flex-col gap-5 flex-1 animate-fade-up">
@@ -201,7 +209,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         {/* Record button */}
         <button
           onClick={handleRecord}
-          disabled={scoreBroken}
+          disabled={blocked}
           aria-label={state === 'recording' ? '停止录音' : '开始录音'}
           className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 disabled:opacity-40 ${
             state === 'recording'
@@ -213,7 +221,13 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
             ? <Square className="h-8 w-8 fill-current" />
             : <Mic className="h-8 w-8" />}
         </button>
-        {scoreBroken ? (
+        {quota ? (
+          <p className="text-sm font-medium leading-relaxed text-amber-600 dark:text-amber-400">
+            😴 今天的发音练习次数已经用完了{quota.limit ? `（每天 ${quota.limit} 次）` : ''}。
+            <br />
+            明天再来吧，进度已保存。
+          </p>
+        ) : scoreBroken ? (
           <p className="text-sm font-medium leading-relaxed text-destructive">
             😞 已经连续 {MAX_SCORE_FAILS} 次没打上分。
             <br />
@@ -263,7 +277,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
             )}
           </div>
         )}
-        {state === 'recorded' && (
+        {state === 'recorded' && !quota && (
           <div className="flex items-center justify-center gap-3 animate-fade-up">
             <Button variant="glass" className="gap-1.5" onClick={handlePlayback}>
               <Play className="h-4 w-4" /> 我的录音
@@ -276,7 +290,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         {audioUrl && <audio ref={audioRef} src={audioUrl} preload="auto" />}
       </div>
 
-      {scoreBroken ? (
+      {blocked ? (
         <Button variant="hero" className="h-13 w-full" onClick={handleAbort}>
           返回主界面
         </Button>
