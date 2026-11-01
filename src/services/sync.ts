@@ -9,6 +9,7 @@
 // learning data (see mergeProfileData).
 import type { ProfileData, WordProgress, DailySession, SyncAccount } from '@/types'
 import { useUserStore, toDateStr } from '@/store/userStore'
+import { remapProfileData } from '@/lib/word-aliases'
 
 // Same-origin API — no config needed; the panel only fails at runtime when
 // the app is served without Functions (plain `vite dev`)
@@ -120,6 +121,9 @@ function pickSession(a: DailySession | null, b: DailySession | null): DailySessi
 // max per day, error banks union (a word cleared on one device may briefly
 // reappear — it clears again after practice, which beats losing errors)
 export function mergeProfileData(local: ProfileData, remote: ProfileData): ProfileData {
+  // Snapshots written by older clients may still use pre-dedupe word ids
+  local = remapProfileData(local)
+  remote = remapProfileData(remote)
   const progress: Record<number, WordProgress> = { ...remote.progress }
   for (const p of Object.values(local.progress ?? {})) {
     const r = progress[p.wordId]

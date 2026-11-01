@@ -11,7 +11,8 @@ const stub = {
 Object.defineProperty(globalThis, 'localStorage', { value: stub, configurable: true })
 Object.defineProperty(globalThis, 'window', { value: { localStorage: stub }, configurable: true })
 
-const { useUserStore, pruneSessionWords } = await import('../src/store/userStore')
+const { useUserStore } = await import('../src/store/userStore')
+const { pruneSessionWords } = await import('../src/lib/session')
 const s = () => useUserStore.getState()
 const known = new Set([1, 2, 3, 4])
 const isKnown = (id: number) => known.has(id)

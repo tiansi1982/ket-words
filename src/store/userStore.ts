@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, DailySession } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount } from '@/types'
+import { pruneSessionWords } from '@/lib/session'
+import { remapProfileData } from '@/lib/word-aliases'
 
 interface UserStore extends UserState {
   addProfile: (name: string) => void
@@ -60,27 +62,6 @@ function isDue(p: WordProgress, today: string): boolean {
     p.status === 'mastered' &&
     (p.dueDate === undefined || (p.dueDate !== null && p.dueDate <= today))
   )
-}
-
-// Remove unknown ids from a session, keeping the cursor on the same word:
-// the new index is the number of surviving ids before the old index.
-// Returns the same object when nothing changed so callers can skip a set().
-export function pruneSessionWords(
-  session: DailySession,
-  isKnown: (wordId: number) => boolean
-): DailySession {
-  const seen = new Set<number>()
-  const keep = (id: number) => {
-    if (!isKnown(id) || seen.has(id)) return false
-    seen.add(id)
-    return true
-  }
-  const oldIndex = session.currentIndex ?? 0
-  const wordIds = session.wordIds.filter(keep)
-  if (wordIds.length === session.wordIds.length) return session
-  seen.clear()
-  const currentIndex = session.wordIds.slice(0, oldIndex).filter(keep).length
-  return { ...session, wordIds, currentIndex }
 }
 
 function genId(): string {
@@ -367,7 +348,7 @@ export const useUserStore = create<UserStore>()(
     }),
     {
       name: 'ket-words-user',
-      version: 2,
+      version: 3,
       migrate: (persisted, version) => {
         let state = persisted as UserState
         // v0 was single-user: wrap the existing data as the first profile
@@ -383,6 +364,15 @@ export const useUserStore = create<UserStore>()(
         // v1 predates cloud sync
         if (version <= 1) {
           state = { ...state, syncAccounts: {} }
+        }
+        // v2 predates the word-list dedupe: fold removed duplicate ids into
+        // the kept ones, for the active profile and every stashed one
+        if (version <= 2) {
+          const profileData: Record<string, ProfileData> = {}
+          for (const [id, data] of Object.entries(state.profileData ?? {})) {
+            profileData[id] = remapProfileData(withDefaults(data))
+          }
+          state = { ...state, ...remapProfileData(snapshot(state)), profileData }
         }
         return state
       },

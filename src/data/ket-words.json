@@ -5948,26 +5948,6 @@
     "ipa": "/hɑːf/"
   },
   {
-    "id": 601,
-    "word": "goat",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "山羊",
-    "example": "The goat ate the grass on the hill.",
-    "example_cn": "山羊吃了山丘上的草。",
-    "ipa": "/ɡɐ̟ʉt/"
-  },
-  {
-    "id": 602,
-    "word": "gold",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "黄金",
-    "example": "She wore a beautiful gold necklace.",
-    "example_cn": "她戴着一条漂亮的金项链。",
-    "ipa": "/ɡɒʊld/"
-  },
-  {
     "id": 603,
     "word": "golden",
     "pos": "adj",
@@ -5986,16 +5966,6 @@
     "example": "My dad plays golf every weekend.",
     "example_cn": "我爸爸每个周末都打高尔夫球。",
     "ipa": "/ɡɒlf/"
-  },
-  {
-    "id": 605,
-    "word": "good",
-    "pos": "adj",
-    "pos_cn": "形容词",
-    "definition": "好的",
-    "example": "She is a good student in our class.",
-    "example_cn": "她是我们班的好学生。",
-    "ipa": "/ɡʊ(d)/"
   },
   {
     "id": 606,
@@ -6045,26 +6015,6 @@
     "ipa": "/ɡʊdˈlʊkɪŋ/"
   },
   {
-    "id": 611,
-    "word": "goodbye",
-    "pos": "exclam",
-    "pos_cn": "感叹词",
-    "definition": "再见",
-    "example": "She waved and said goodbye to us.",
-    "example_cn": "她挥手跟我们说再见。",
-    "ipa": "/ɡədˈbaɪ/"
-  },
-  {
-    "id": 612,
-    "word": "grade",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "成绩",
-    "example": "I got a good grade in the maths test.",
-    "example_cn": "我数学考试取得了好成绩。",
-    "ipa": "/ɡɹeɪd/"
-  },
-  {
     "id": 613,
     "word": "gram(me)",
     "pos": "n",
@@ -6084,64 +6034,6 @@
     "example_cn": "我爷爷讲的故事很精彩。"
   },
   {
-    "id": 615,
-    "word": "grandchild",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "孙子女",
-    "example": "She has three grandchildren.",
-    "example_cn": "她有三个孙子女。"
-  },
-  {
-    "id": 616,
-    "word": "granddaughter",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "孙女",
-    "example": "His granddaughter visits him every Sunday.",
-    "example_cn": "他的孙女每个星期天都来看他。"
-  },
-  {
-    "id": 617,
-    "word": "grandfather",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "祖父",
-    "example": "My grandfather was a teacher.",
-    "example_cn": "我的祖父是一名老师。",
-    "ipa": "/ˈɡɹæn(d)ˌfɑːðə(r)/"
-  },
-  {
-    "id": 618,
-    "word": "grandma",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "奶奶",
-    "example": "Grandma makes the best cakes.",
-    "example_cn": "奶奶做的蛋糕最好吃。",
-    "ipa": "/ˈɡɹænmɑː/"
-  },
-  {
-    "id": 619,
-    "word": "grandmother",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "祖母",
-    "example": "My grandmother lives in the countryside.",
-    "example_cn": "我的祖母住在乡下。",
-    "ipa": "/ˈɡɹæn(d)ˌmʌðə(r)/"
-  },
-  {
-    "id": 620,
-    "word": "grandpa",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "爷爷",
-    "example": "Grandpa takes me fishing on Saturdays.",
-    "example_cn": "爷爷每周六带我去钓鱼。",
-    "ipa": "/ˈɡɹæmpɑː/"
-  },
-  {
     "id": 621,
     "word": "grandparent",
     "pos": "n",
@@ -6150,16 +6042,6 @@
     "example": "My grandparents are very kind.",
     "example_cn": "我的祖父母非常和蔼。",
     "ipa": "/ˈɡɹæn(d)pæɹənt/"
-  },
-  {
-    "id": 622,
-    "word": "grandson",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "孙子",
-    "example": "Her grandson is five years old.",
-    "example_cn": "她的孙子五岁了。",
-    "ipa": "/ˈɡɹæn(d)sʌn/"
   },
   {
     "id": 623,
@@ -6192,16 +6074,6 @@
     "ipa": "[ɡɹ̠ɑːs]"
   },
   {
-    "id": 626,
-    "word": "great",
-    "pos": "adj",
-    "pos_cn": "形容词",
-    "definition": "极好的",
-    "example": "We had a great time at the party.",
-    "example_cn": "我们在派对上玩得很开心。",
-    "ipa": "/ɡɹeɪt/"
-  },
-  {
     "id": 627,
     "word": "green",
     "pos": "adj",
@@ -6212,16 +6084,6 @@
     "ipa": "/ɡɹiːn/"
   },
   {
-    "id": 628,
-    "word": "grey",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "灰色",
-    "example": "The sky was grey and it looked like rain.",
-    "example_cn": "天空灰蒙蒙的，像是要下雨。",
-    "ipa": "/ɡɹeɪ/"
-  },
-  {
     "id": 629,
     "word": "grilled",
     "pos": "adj",
@@ -6230,64 +6092,6 @@
     "example": "I had grilled chicken for lunch today.",
     "example_cn": "我今天午餐吃了烤鸡。",
     "ipa": "/ɡɹɪld/"
-  },
-  {
-    "id": 630,
-    "word": "grocery store",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "杂货店",
-    "example": "We buy fruit at the grocery store.",
-    "example_cn": "我们在杂货店买水果。"
-  },
-  {
-    "id": 631,
-    "word": "ground",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "地面",
-    "example": "The ball fell to the ground.",
-    "example_cn": "球掉到了地上。",
-    "ipa": "/ɡɹaʊnd/"
-  },
-  {
-    "id": 632,
-    "word": "group",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "小组",
-    "example": "We worked in groups in class today.",
-    "example_cn": "我们今天上课分组合作。",
-    "ipa": "/ɡɹuːp/"
-  },
-  {
-    "id": 633,
-    "word": "grow",
-    "pos": "v",
-    "pos_cn": "动词",
-    "definition": "生长",
-    "example": "Flowers grow well in spring.",
-    "example_cn": "花在春天长得很好。",
-    "ipa": "/ɡɹəʊ/"
-  },
-  {
-    "id": 634,
-    "word": "grow up",
-    "pos": "phr v",
-    "pos_cn": "短语动词",
-    "definition": "长大",
-    "example": "I want to be a doctor when I grow up.",
-    "example_cn": "我长大后想当医生。"
-  },
-  {
-    "id": 635,
-    "word": "guess",
-    "pos": "v",
-    "pos_cn": "动词",
-    "definition": "猜测",
-    "example": "Can you guess what is in the box?",
-    "example_cn": "你能猜到盒子里是什么吗？",
-    "ipa": "/ɡɛs/"
   },
   {
     "id": 636,
@@ -6337,16 +6141,6 @@
     "example_cn": "我在旅行前买了一本旅游指南。"
   },
   {
-    "id": 641,
-    "word": "guitar",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "吉他",
-    "example": "My brother plays guitar in a band.",
-    "example_cn": "我哥哥在乐队里弹吉他。",
-    "ipa": "/ɡɪˈtɑː(ɹ)/"
-  },
-  {
     "id": 642,
     "word": "guy",
     "pos": "n",
@@ -6355,36 +6149,6 @@
     "example": "That guy over there is my best friend.",
     "example_cn": "那边那个家伙是我最好的朋友。",
     "ipa": "/ɡaɪ/"
-  },
-  {
-    "id": 643,
-    "word": "gym",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "健身房",
-    "example": "Dad goes to the gym every morning.",
-    "example_cn": "爸爸每天早上去健身房。",
-    "ipa": "/dʒɪm/"
-  },
-  {
-    "id": 644,
-    "word": "hair",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "头发",
-    "example": "She has long brown hair.",
-    "example_cn": "她有一头棕色的长发。",
-    "ipa": "/hɛə/"
-  },
-  {
-    "id": 645,
-    "word": "half",
-    "pos": "n",
-    "pos_cn": "名词",
-    "definition": "一半",
-    "example": "Cut the orange in half and share it.",
-    "example_cn": "把橙子切成两半分着吃。",
-    "ipa": "/hɑːf/"
   },
   {
     "id": 646,

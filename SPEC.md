@@ -2,7 +2,7 @@
 
 ## 一、项目概述
 
-面向中国孩子（10 岁以上）的 KET 英语词汇学习 Web App。目标是帮助孩子系统掌握剑桥 KET（A2 级）全部 1598 个词汇，通过每日学习 + 发音练习 + 拼写测试 + 选择题，形成记忆闭环。
+面向中国孩子（10 岁以上）的 KET 英语词汇学习 Web App。目标是帮助孩子系统掌握剑桥 KET（A2 级）全部 1574 个词汇，通过每日学习 + 发音练习 + 拼写测试 + 选择题，形成记忆闭环。
 
 - **线上地址**：https://ket-words.pages.dev
 - **技术栈**：React 19 + TypeScript + Vite 8 + Tailwind CSS v4 + shadcn/ui + Zustand + React Router v6
@@ -14,27 +14,27 @@
 ## 二、词库数据
 
 ### 来源与规模
-- 剑桥 KET 官方词表，共 **1598 个词条**
+- 剑桥 KET 官方词表，共 **1574 个词条**（2026-11 去除了 24 个重复导入的 G 区词条；ID 不重编，旧 ID 映射见 `src/lib/word-aliases.ts`）
 - 存储路径：`src/data/ket-words.json`
 
 ### 每个词条的字段
 
 | 字段 | 类型 | 说明 |
 |------|------|------|
-| `id` | number | 唯一 ID，1–1598 |
+| `id` | number | 唯一 ID，1–1598 之间、不连续（去重后保留原 ID，用户进度按 ID 存储） |
 | `word` | string | 英文单词（含消歧文本，如 `"sign (NOTICE)"`） |
 | `pos` | string | 词性（英文，如 `"n"`, `"v"`, `"adj"`） |
 | `pos_cn` | string | 词性（中文，如 `"名词"`, `"动词"`） |
 | `definition` | string | 中文释义（简洁，如 `"能够的"`） |
 | `example` | string | 英文例句（A2 难度，不超过 15 个词） |
 | `example_cn` | string | 例句中文翻译 |
-| `ipa` | string? | 英式 IPA 音标（如 `/əˈbaʊt/`），来自 dictionaryapi.dev（scripts/fetch-ipa.mjs），1425/1598 条有值，词组多缺失，缺失时 UI 不显示 |
+| `ipa` | string? | 英式 IPA 音标（如 `/əˈbaʊt/`），来自 dictionaryapi.dev（scripts/fetch-ipa.mjs），1405/1574 条有值，词组多缺失，缺失时 UI 不显示 |
 
 ---
 
 ## 三、用户状态与进度
 
-### 状态结构（Zustand + localStorage，persist version 2）
+### 状态结构（Zustand + localStorage，persist version 3）
 
 ```
 activeProfileId 当前孩子的 profile id
@@ -55,7 +55,8 @@ dailyLog        Record<YYYY-MM-DD, number>（每天答题次数，用于打卡/�
   `profileData`，目标孩子的数据换入顶层
 - 删除有二次确认；最后一个档案不可删除；删除当前档案自动切到第一个剩余档案
 - 迁移：persist version 0（单用户旧数据）自动包装成第一个档案「孩子 1」；
-  version 1 → 2 补空 `syncAccounts`
+  version 1 → 2 补空 `syncAccounts`；version 2 → 3 把去重时移除的重复词条 ID 并入保留 ID
+  （`remapProfileData`：进度取状态更高/更近学习的一条，错题本与 session 去重），云端旧快照在合并时同样处理
 
 ### 云同步（P3，自建 /api/sync 后端）
 
@@ -120,9 +121,9 @@ dueDate         下次复习日期 YYYY-MM-DD（本地时区）；null = 已巩�
 
 | 难度 | 字母数 | 示例 | 词库数量 |
 |------|--------|------|---------|
-| 简单 | ≤ 4 | `be`, `big`, `able` | 486 个 |
-| 中等 | 5–7 | `table`, `friend`, `bus stop` | 760 个 |
-| 困难 | ≥ 8 | `beautiful`, `ice cream` | 352 个 |
+| 简单 | ≤ 4 | `be`, `big`, `able` | 478 个 |
+| 中等 | 5–7 | `table`, `friend`, `bus stop` | 750 个 |
+| 困难 | ≥ 8 | `beautiful`, `ice cream` | 346 个 |
 
 词组按所有单词的字母总数计（`ice cream` = 8 字母 → 困难），不再只看第一个词。
 
@@ -262,7 +263,7 @@ dueDate         下次复习日期 YYYY-MM-DD（本地时区）；null = 已巩�
 
 ### 5.5 学习统计（/stats）
 
-- **总体进度条**：已掌握 / 1598
+- **总体进度条**：已掌握 / 1574
 - **最近 14 天**：每日答题数柱状图（主色柱、零学习日灰色矮柱、悬停显示日期和题数），
   卡片右上角显示「🔥 连续打卡 N 天」
 - **六格数据卡**：
