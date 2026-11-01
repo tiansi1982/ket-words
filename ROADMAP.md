@@ -30,7 +30,16 @@
 | R12 | ✅ | SPEC 5.1 / 5.2 / 5.3 / 六 / 九 / 十、BACKLOG 盘点表与代码对齐；新增 CHANGELOG.md |
 | R14 | ✅ | 决定保留"一词两题"（跟读失败仍记错、重置 SRS），统计页加一行说明；`recordSpeak` 另记 `speakFailCount` / `lastSpeakScore` |
 
-下一步按排期进入第 3 周：R9 错题分批 + 列表、R10 设置页 + 家长 PIN、R11 跟读分解提示、E2 测试框架。
+**2026-11-01 · 第 3 周那组也已完成**：
+
+| 编号 | 状态 | 说明 |
+|------|------|------|
+| R10 | ✅ | `/settings`：每日目标、自动朗读、跟读通过线（家长，60–100）、家长 PIN；`PinDialog` / `usePinGate` 守住删档案、解绑、改通过线 |
+| R11 | ✅ | 连续 3 次低于通过线 → 最低分的 2 个词单独播放；分数条画通过线 |
+| R9 | ✅ | `/error-bank` 列表页 + `/error-bank/practice` 每轮 10 个；`errorSession` 持久化可续；轮次回顾 |
+| E2 | ✅ | vitest + Testing Library；13 个旧脚本原样包进 `test()`，4 个组件测试文件（25 个用例，4.5s） |
+
+下一步按排期进入第 4 周：F1 单词本 / 词典浏览、F2 "我已经会了"批量标记。
 
 ---
 
@@ -201,9 +210,9 @@
 | R6 ✅ | **iOS AudioContext resume + 诊断**（M3） | S | `src/services/soe.ts` | iPhone Safari 主屏 PWA 实测评分正常；`state !== 'running'` 时 console.warn |
 | R7 ✅ | **学习完成总结页** | M | `src/pages/Study.tsx`（或新 `SessionSummary.tsx`）、`userStore`（session 内记录每词结果） | 列出本次每个词：拼写对错、发音分、是否进错题本；可点读；显示"明天待复习 N 个" |
 | R8 ✅ | **复习词 / 新词 / 学习中 标签** | S | `Study.tsx`、`SentenceSpeak.tsx` | 展示阶段卡片右上角有标签；复习词显示上次学习距今天数 |
-| R9 | **错题练习分批 + 进度持久化 + 列表视图**（M6） | M | `src/pages/ErrorBank.tsx`、`userStore`（`errorSession`）、新 `ErrorList.tsx` | 每轮 10 个；中途退出可续；列表可浏览、点读、手动移除 |
-| R10 | **设置页雏形 + 家长 PIN**（M5） | M | 新 `src/pages/Settings.tsx`、`userStore`（`settings` 字段，持 persist v3 迁移）、`Stats.tsx`（移走每日目标） | 可设：每日目标、发音通过线（60–100）、自动朗读开关、离线是否允许学习；危险操作（删档案/解绑/改通过线）需 4 位 PIN |
-| R11 | **跟读连续未过时的分解提示** | S | `SentenceSpeak.tsx` | 第 3 次 <通过线：显示逐词分数最低的 1–2 个词，提供"只听这个词"按钮 |
+| R9 ✅ | **错题练习分批 + 进度持久化 + 列表视图**（M6） | M | `src/pages/ErrorBank.tsx`、`userStore`（`errorSession`）、新 `ErrorList.tsx` | 每轮 10 个；中途退出可续；列表可浏览、点读、手动移除 |
+| R10 ✅ | **设置页雏形 + 家长 PIN**（M5） | M | 新 `src/pages/Settings.tsx`、`userStore`（`settings` 字段，持 persist v3 迁移）、`Stats.tsx`（移走每日目标） | 可设：每日目标、发音通过线（60–100）、自动朗读开关、离线是否允许学习；危险操作（删档案/解绑/改通过线）需 4 位 PIN |
+| R11 ✅ | **跟读连续未过时的分解提示** | S | `SentenceSpeak.tsx` | 第 3 次 <通过线：显示逐词分数最低的 1–2 个词，提供"只听这个词"按钮 |
 | R12 ✅ | **文档同步**（M7） | S | `README.md`、`SPEC.md`、`BACKLOG.md`、新 `CHANGELOG.md` | README 技术栈/后端/发音描述正确；SPEC 5.2 与七章反映严格模式；BACKLOG 顶部指向本文件 |
 | R13 ✅ | **lint 清零 + 移除 `tw-animate-css`**（L1、L2） | S | `SentenceSpeak.tsx`、`ui/button.tsx`、`index.css`、`package.json` | `npm run lint` 0 错误；bundle 不增大 |
 | R14 ✅ | **跟读/拼写计分口径明确**（M4） | S | `userStore.updateProgress`、`Stats.tsx` | 决定并实现：要么跟读失败不计 `wrongCount` 只标 `speakFail`，要么统计页写明"一词两题" |
@@ -231,7 +240,7 @@
 | 编号 | 任务 | 量 | 说明 |
 |------|------|----|------|
 | E1 ✅ | **GitHub Actions CI** | S | PR 和 push 到 main：`npm ci` → lint → test → build → `validate-words`。失败不允许合并。 |
-| E2 | **测试框架升级** | M | 迁到 vitest（保留现有断言），加 React Testing Library 覆盖 `Study`/`ErrorBank`/`SentenceSpeak` 的状态机（mock recorder/soe/tts）。 |
+| E2 ✅ | **测试框架升级** | M | 迁到 vitest（保留现有断言），加 React Testing Library 覆盖 `Study`/`ErrorBank`/`SentenceSpeak` 的状态机（mock recorder/soe/tts）。 |
 | E3 | **端到端冒烟** | M | Playwright：mock `/api/soe-url` 和 WebSocket，跑完"首页 → 今日学习一轮 → 完成页"，在 CI 里跑。 |
 | E4 | **错误监控** | S | 前端 `window.onerror` + ErrorBoundary 上报到一个 Pages Function（写 D1 或 Cloudflare Analytics Engine），避免靠家长口述复现 bug。 |
 | E5 | **AudioWorklet 迁移** | M | 替换 `ScriptProcessorNode`；同时把重采样放到 worklet 线程。 |

@@ -22,7 +22,8 @@ speechSynthesis；整句跟读用 MediaRecorder 录音 + 腾讯智聆云端评�
 npm install
 npm run dev       # 本地开发（纯前端；要连 /api 用 npx wrangler pages dev dist）
 npm run lint
-npm test          # 词库校验（scripts/validate-words.mjs）+ store 回归测试（tests/*.mts）
+npm test          # 词库校验（scripts/validate-words.mjs）+ vitest（tests/*.mts 的 store/服务测试，tests/components/ 的组件测试）
+npm run test:watch
 npm run build     # 类型检查 + 构建
 ```
 
