@@ -19,9 +19,17 @@ const hasSpeech = recorder.isSupported()
 
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, progress, updateProgress, addToErrorBank, advanceSession, completeDailySession } = useUserStore()
+  const { currentSession, progress, updateProgress, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
+
+  // A session saved before a word-list change may reference ids that no longer
+  // exist; drop them (cursor preserved) instead of rendering an empty card with
+  // no way forward. No-op when every id is known.
+  const sessionWordIds = currentSession?.wordIds
+  useEffect(() => {
+    if (sessionWordIds) pruneSession((id) => getWord(id) !== undefined)
+  }, [sessionWordIds, pruneSession, getWord])
 
   // Session cursor lives in the persisted store so leaving mid-session resumes here
   const index = currentSession?.currentIndex ?? 0

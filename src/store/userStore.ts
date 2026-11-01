@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, DailySession } from '@/types'
 
 interface UserStore extends UserState {
   addProfile: (name: string) => void
@@ -17,6 +17,9 @@ interface UserStore extends UserState {
   setDailyGoal: (goal: number) => void
   startDailySession: (wordIds: number[]) => void
   advanceSession: () => void
+  // Drop session words the dictionary no longer has (e.g. after a word-list
+  // cleanup) so a stale session can't strand the study page on a missing card
+  pruneSession: (isKnown: (wordId: number) => boolean) => void
   completeDailySession: () => void
   updateProgress: (wordId: number, correct: boolean) => void
   addToErrorBank: (wordId: number) => void
@@ -57,6 +60,27 @@ function isDue(p: WordProgress, today: string): boolean {
     p.status === 'mastered' &&
     (p.dueDate === undefined || (p.dueDate !== null && p.dueDate <= today))
   )
+}
+
+// Remove unknown ids from a session, keeping the cursor on the same word:
+// the new index is the number of surviving ids before the old index.
+// Returns the same object when nothing changed so callers can skip a set().
+export function pruneSessionWords(
+  session: DailySession,
+  isKnown: (wordId: number) => boolean
+): DailySession {
+  const seen = new Set<number>()
+  const keep = (id: number) => {
+    if (!isKnown(id) || seen.has(id)) return false
+    seen.add(id)
+    return true
+  }
+  const oldIndex = session.currentIndex ?? 0
+  const wordIds = session.wordIds.filter(keep)
+  if (wordIds.length === session.wordIds.length) return session
+  seen.clear()
+  const currentIndex = session.wordIds.slice(0, oldIndex).filter(keep).length
+  return { ...session, wordIds, currentIndex }
 }
 
 function genId(): string {
@@ -219,6 +243,15 @@ export const useUserStore = create<UserStore>()(
               }
             : null,
         })),
+
+      pruneSession: (isKnown) =>
+        set((state) => {
+          if (!state.currentSession) return state
+          const pruned = pruneSessionWords(state.currentSession, isKnown)
+          if (pruned === state.currentSession) return state
+          // Nothing left to study: clear it so the home page picks a fresh set
+          return { currentSession: pruned.wordIds.length ? pruned : null }
+        }),
 
       completeDailySession: () =>
         set((state) => ({
