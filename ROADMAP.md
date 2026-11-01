@@ -6,6 +6,26 @@
 
 ---
 
+## 进度
+
+**2026-11-01 · 第 1 周那组已完成**（分支 `claude/beautiful-clarke-7qqdu3`）：
+
+| 编号 | 状态 | 说明 |
+|------|------|------|
+| R13 | ✅ | lint 0 错误；移除未用的 `tw-animate-css`；`tsx` 进 devDependencies |
+| R2 | ✅ | `Study` 进入时剔除词库里不存在/重复的 ID，光标不丢；全部失效则清空 session；`src/lib/session.ts` + 测试 |
+| R3 | ✅ | 词库 1598 → 1574；`src/lib/word-aliases.ts` 把 24 个旧 ID 并入保留 ID（persist v3 迁移 + 同步合并时都处理）；删了 20 个孤儿音频；README/SPEC 数字更新 |
+| R4 | ✅ | `scripts/validate-words.mjs` 接进 `npm test`；顺手修了 36 条格式错误的音标（碎片/方括号/澳音） |
+| R1 | ✅ | `/api/soe-url` 必须带 session token 或设备令牌（新 `POST /api/device`），只签词库例句，按主体与 IP 每日计数（`migrations/0002_soe_quota.sql`）；前端超额有专门提示。**上线前要执行一次 `npx wrangler d1 migrations apply ket-words-sync --remote`**，并建议在控制台加 WAF 速率限制 |
+| E1 | ✅ | `.github/workflows/ci.yml`：lint → test → build |
+
+顺带完成的：README 技术栈段落、部署说明已更新（R12 的一部分）；SPEC 第七章改为描述严格模式与鉴权配额。
+R12 剩余：SPEC 5.2 的"可随时跳过"措辞、BACKLOG 功能盘点表、CHANGELOG。
+
+下一步按排期进入第 2 周：R5 R6 R7 R8 R12 R14。
+
+---
+
 ## 0. 一页结论
 
 **项目整体健康**：架构清晰、功能闭环完整（学 → 读 → 拼 → SRS 复习 → 错题 → 统计 → 多孩子 → 云同步），
@@ -165,10 +185,10 @@
 
 | 编号 | 任务 | 量 | 涉及文件 | 验收标准 |
 |------|------|----|----------|----------|
-| R1 | **SOE 签名接口加鉴权 + 配额**（H1） | M | `functions/api/soe-url.ts`、`functions/api/sync/_lib.ts`、`src/services/soe.ts`、新 `migrations/0002_quota.sql` | 无 token 返回 401；每账号/设备每日上限可配置；超限前端有友好提示；`refText` 必须是词库例句 |
-| R2 | **Study 对未知 wordId 的防护**（H3） | S | `src/pages/Study.tsx`、`src/store/userStore.ts` | 构造一个含不存在 ID 的 session，页面自动跳过且不崩；加回归测试 |
-| R3 | **词库去重**（H2） | S | `src/data/ket-words.json`、新 `scripts/validate-words.mjs` | 24 个重复条目移除，ID 不重编；校验脚本断言 `word+pos` 唯一；首页总数显示 1574 |
-| R4 | **词库校验脚本接入 test** | S | `scripts/validate-words.mjs`、`package.json` | 校验：ID 唯一递增、`word+pos` 唯一、IPA 以 `/` 包裹且不含 `-` 开头/结尾、例句含原形或 `forms` 之一、例句 ≤15 词 |
+| R1 ✅ | **SOE 签名接口加鉴权 + 配额**（H1） | M | `functions/api/soe-url.ts`、`functions/api/sync/_lib.ts`、`src/services/soe.ts`、新 `migrations/0002_quota.sql` | 无 token 返回 401；每账号/设备每日上限可配置；超限前端有友好提示；`refText` 必须是词库例句 |
+| R2 ✅ | **Study 对未知 wordId 的防护**（H3） | S | `src/pages/Study.tsx`、`src/store/userStore.ts` | 构造一个含不存在 ID 的 session，页面自动跳过且不崩；加回归测试 |
+| R3 ✅ | **词库去重**（H2） | S | `src/data/ket-words.json`、新 `scripts/validate-words.mjs` | 24 个重复条目移除，ID 不重编；校验脚本断言 `word+pos` 唯一；首页总数显示 1574 |
+| R4 ✅ | **词库校验脚本接入 test** | S | `scripts/validate-words.mjs`、`package.json` | 校验：ID 唯一递增、`word+pos` 唯一、IPA 以 `/` 包裹且不含 `-` 开头/结尾、例句含原形或 `forms` 之一、例句 ≤15 词 |
 | R5 | **不规则变形字段 `forms`**（M2） | S | `ket-words.json`、`src/types/index.ts`、`SentenceSpeak.tsx` | 18 条例句高亮恢复；后续填空题复用 |
 | R6 | **iOS AudioContext resume + 诊断**（M3） | S | `src/services/soe.ts` | iPhone Safari 主屏 PWA 实测评分正常；`state !== 'running'` 时 console.warn |
 | R7 | **学习完成总结页** | M | `src/pages/Study.tsx`（或新 `SessionSummary.tsx`）、`userStore`（session 内记录每词结果） | 列出本次每个词：拼写对错、发音分、是否进错题本；可点读；显示"明天待复习 N 个" |
@@ -177,7 +197,7 @@
 | R10 | **设置页雏形 + 家长 PIN**（M5） | M | 新 `src/pages/Settings.tsx`、`userStore`（`settings` 字段，持 persist v3 迁移）、`Stats.tsx`（移走每日目标） | 可设：每日目标、发音通过线（60–100）、自动朗读开关、离线是否允许学习；危险操作（删档案/解绑/改通过线）需 4 位 PIN |
 | R11 | **跟读连续未过时的分解提示** | S | `SentenceSpeak.tsx` | 第 3 次 <通过线：显示逐词分数最低的 1–2 个词，提供"只听这个词"按钮 |
 | R12 | **文档同步**（M7） | S | `README.md`、`SPEC.md`、`BACKLOG.md`、新 `CHANGELOG.md` | README 技术栈/后端/发音描述正确；SPEC 5.2 与七章反映严格模式；BACKLOG 顶部指向本文件 |
-| R13 | **lint 清零 + 移除 `tw-animate-css`**（L1、L2） | S | `SentenceSpeak.tsx`、`ui/button.tsx`、`index.css`、`package.json` | `npm run lint` 0 错误；bundle 不增大 |
+| R13 ✅ | **lint 清零 + 移除 `tw-animate-css`**（L1、L2） | S | `SentenceSpeak.tsx`、`ui/button.tsx`、`index.css`、`package.json` | `npm run lint` 0 错误；bundle 不增大 |
 | R14 | **跟读/拼写计分口径明确**（M4） | S | `userStore.updateProgress`、`Stats.tsx` | 决定并实现：要么跟读失败不计 `wrongCount` 只标 `speakFail`，要么统计页写明"一词两题" |
 
 ### 阶段 2 · 新功能（第 3–6 周）
@@ -202,7 +222,7 @@
 
 | 编号 | 任务 | 量 | 说明 |
 |------|------|----|------|
-| E1 | **GitHub Actions CI** | S | PR 和 push 到 main：`npm ci` → lint → test → build → `validate-words`。失败不允许合并。 |
+| E1 ✅ | **GitHub Actions CI** | S | PR 和 push 到 main：`npm ci` → lint → test → build → `validate-words`。失败不允许合并。 |
 | E2 | **测试框架升级** | M | 迁到 vitest（保留现有断言），加 React Testing Library 覆盖 `Study`/`ErrorBank`/`SentenceSpeak` 的状态机（mock recorder/soe/tts）。 |
 | E3 | **端到端冒烟** | M | Playwright：mock `/api/soe-url` 和 WebSocket，跑完"首页 → 今日学习一轮 → 完成页"，在 CI 里跑。 |
 | E4 | **错误监控** | S | 前端 `window.onerror` + ErrorBoundary 上报到一个 Pages Function（写 D1 或 Cloudflare Analytics Engine），避免靠家长口述复现 bug。 |
