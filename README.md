@@ -5,7 +5,8 @@
 
 **线上地址**：https://ket-words.pages.dev （Cloudflare Pages，push 到 main 自动部署）
 
-完整产品文档见 [SPEC.md](./SPEC.md)，待办与已完成清单见 [BACKLOG.md](./BACKLOG.md)。
+完整产品文档见 [SPEC.md](./SPEC.md)；2026-11 的项目 review 与下一阶段开发计划见 [ROADMAP.md](./ROADMAP.md)；
+2026-07 的历史清单见 [BACKLOG.md](./BACKLOG.md)。
 
 ## 技术栈
 
