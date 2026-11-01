@@ -58,4 +58,5 @@ function Button({
   )
 }
 
-export { Button, buttonVariants }
+// buttonVariants stays module-private: exporting a non-component breaks Fast Refresh
+export { Button }

@@ -3,6 +3,7 @@ import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
 import { startSoeSession, type SoeSession, type SoeResult } from '@/services/soe'
 import { baseWord, displayWord } from '@/lib/word-utils'
+import { PASS_SCORE, speakWordAndExample } from '@/lib/speak'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
@@ -17,9 +18,6 @@ export type SpeakOutcome = 'passed' | 'failed' | 'skipped'
 // Don't let a walked-away-from mic run forever
 const MAX_RECORD_MS = 30000
 
-// Reading below this score counts as a miss and goes to the error bank
-export const PASS_SCORE = 90
-
 // Skipping is for stuck/broken situations only: the skip button stays hidden
 // unless an error occurred, or this much time passed without a finished take
 const STUCK_SKIP_MS = 30000
@@ -27,9 +25,6 @@ const STUCK_SKIP_MS = 30000
 // Scoring is a required part of the loop (no offline mode): each unscored take
 // asks for a retry, and this many failures aborts the session back home
 const MAX_SCORE_FAILS = 3
-
-// Listening = the word followed by its example sentence
-export const speakWordAndExample = (w: Word) => tts.speakAll([baseWord(w.word), w.example])
 
 // Example sentence with the target word (or its inflection, e.g. go → goes) highlighted
 export function ExampleSentence({ word, example }: { word: string; example: string }) {
