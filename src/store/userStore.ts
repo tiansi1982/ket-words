@@ -24,6 +24,9 @@ interface UserStore extends UserState {
   pruneSession: (isKnown: (wordId: number) => boolean) => void
   completeDailySession: () => void
   updateProgress: (wordId: number, correct: boolean) => void
+  // Read-aloud result for a word (does not touch counts/SRS — pair it with
+  // updateProgress(false) when the take failed)
+  recordSpeak: (wordId: number, score: number | null, passed: boolean) => void
   addToErrorBank: (wordId: number) => void
   removeFromErrorBank: (wordId: number) => void
   getWordStatus: (wordId: number) => StudyStatus
@@ -296,6 +299,27 @@ export const useUserStore = create<UserStore>()(
                 srsLevel,
                 dueDate,
                 lastStudied: Date.now(),
+              },
+            },
+          }
+        }),
+
+      recordSpeak: (wordId, score, passed) =>
+        set((state) => {
+          const existing: WordProgress = state.progress[wordId] ?? {
+            wordId,
+            status: 'new',
+            correctCount: 0,
+            wrongCount: 0,
+            lastStudied: 0,
+          }
+          return {
+            progress: {
+              ...state.progress,
+              [wordId]: {
+                ...existing,
+                lastSpeakScore: score,
+                speakFailCount: (existing.speakFailCount ?? 0) + (passed ? 0 : 1),
               },
             },
           }

@@ -29,7 +29,15 @@ export interface WordProgress {
   // Both absent on records saved before SRS existed → treated as due today.
   srsLevel?: number
   dueDate?: string | null
+  // Read-aloud tracking (R14). A failed/skipped take also goes through
+  // updateProgress(false) — "one word, two questions" — these just keep the
+  // speaking side visible on its own for stats and weak-word lists
+  speakFailCount?: number
+  lastSpeakScore?: number | null // null = skipped / no score
 }
+
+// How the child left the read-aloud card
+export type SpeakOutcome = 'passed' | 'failed' | 'skipped'
 
 export interface DailySession {
   date: string // YYYY-MM-DD (local time)

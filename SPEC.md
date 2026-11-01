@@ -97,7 +97,16 @@ lastStudied     最后学习时间戳
 consecutiveWrong 连续答错次数（答对清零）；≥2 时拼写题显示首字母提示
 srsLevel        间隔重复等级（0–5，索引复习间隔表；mastered 后有意义）
 dueDate         下次复习日期 YYYY-MM-DD（本地时区）；null = 已巩固（毕业）
+speakFailCount  跟读未过关/跳过的累计次数（R14，可选字段）
+lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
 ```
+
+### 计分口径（R14）
+- **一词两题**：跟读与拼写各算一次作答。跟读没过关或跳过 → `updateProgress(false)`
+  （`wrongCount` +1、`consecutiveWrong` +1、已掌握词的复习间隔重置、进错题本），拼写再算一次。
+  因此 `dailyLog` 和统计页正确率里，一个词一天最多贡献两次；统计页有一行文字说明
+- 跟读结果另外记在 `speakFailCount` / `lastSpeakScore`（`recordSpeak`），不影响 SRS，
+  供"最常读错的词"等后续统计使用
 
 ### 打卡与连续天数
 - 每次答题（今日学习/错题/选择题）给当天 `dailyLog` 计数 +1，按 profile 独立

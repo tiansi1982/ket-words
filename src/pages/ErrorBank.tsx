@@ -6,13 +6,13 @@ import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
-import SentenceSpeak, { type SpeakOutcome } from '@/components/SentenceSpeak'
+import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
 import { Trash2 } from 'lucide-react'
-import type { Word } from '@/types'
+import type { Word, SpeakOutcome } from '@/types'
 
 // Mirrors the daily-study flow: read the sentence aloud first, then spell.
 // A word leaves the error bank only when both parts pass in the same round.
@@ -23,7 +23,7 @@ const initialPhase: Phase = hasSpeech ? 'speak' : 'quiz'
 
 export default function ErrorBank() {
   const navigate = useNavigate()
-  const { errorBank, progress, updateProgress, removeFromErrorBank } = useUserStore()
+  const { errorBank, progress, updateProgress, recordSpeak, removeFromErrorBank } = useUserStore()
   const { getErrorWords, checkSpelling } = useWordStore()
   const online = useOnline()
 
@@ -89,10 +89,13 @@ export default function ErrorBank() {
 
   // Skipped or scored below the bar: the word counts as missed this round, so
   // the spelling that follows can no longer clear it out of the error bank
-  const handleSpeakDone = (outcome: SpeakOutcome) => {
-    if (currentWord && outcome !== 'passed') {
-      setSpeakFailed(true)
-      updateProgress(currentWord.id, false)
+  const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
+    if (currentWord) {
+      recordSpeak(currentWord.id, score, outcome === 'passed')
+      if (outcome !== 'passed') {
+        setSpeakFailed(true)
+        updateProgress(currentWord.id, false)
+      }
     }
     setPhase('quiz')
   }

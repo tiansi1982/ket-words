@@ -5,13 +5,13 @@ import { useWordStore } from '@/store/wordStore'
 import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
 import { displayWord, spellingHint } from '@/lib/word-utils'
-import SentenceSpeak, { ExampleSentence, type SpeakOutcome } from '@/components/SentenceSpeak'
+import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
 import { speakWordAndExample } from '@/lib/speak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import type { Word } from '@/types'
+import type { Word, SpeakOutcome } from '@/types'
 
 type Phase = 'show' | 'speak' | 'quiz' | 'result'
 
@@ -19,7 +19,7 @@ const hasSpeech = recorder.isSupported()
 
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, progress, updateProgress, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
+  const { currentSession, progress, updateProgress, recordSpeak, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
 
@@ -59,10 +59,13 @@ export default function Study() {
 
   // Skipped or scored below the bar: the word counts as missed so it lands in
   // the error bank and stays in the to-learn pool
-  const handleSpeakDone = (outcome: SpeakOutcome) => {
-    if (currentWord && outcome !== 'passed') {
-      updateProgress(currentWord.id, false)
-      addToErrorBank(currentWord.id)
+  const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
+    if (currentWord) {
+      recordSpeak(currentWord.id, score, outcome === 'passed')
+      if (outcome !== 'passed') {
+        updateProgress(currentWord.id, false)
+        addToErrorBank(currentWord.id)
+      }
     }
     goToQuiz()
   }

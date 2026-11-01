@@ -8,12 +8,9 @@ import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
 import { Mic, MicOff, Square, Play, Volume2, Loader2 } from 'lucide-react'
-import type { Word } from '@/types'
+import type { Word, SpeakOutcome } from '@/types'
 
 type SpeakState = 'idle' | 'recording' | 'recorded'
-
-// How the child left the card — parents use this to decide error-bank handling
-export type SpeakOutcome = 'passed' | 'failed' | 'skipped'
 
 // Don't let a walked-away-from mic run forever
 const MAX_RECORD_MS = 30000
@@ -56,7 +53,8 @@ interface SentenceSpeakProps {
   word: Word
   continueLabel: string // e.g. '继续拼写 →' / '下一个 →'
   skipLabel: string // emergency-exit label, e.g. '跳过发音'
-  onContinue: (outcome: SpeakOutcome) => void
+  // score is the cloud score of the take the child continued with, null when skipped
+  onContinue: (outcome: SpeakOutcome, score: number | null) => void
   onAbort: () => void // scoring service failed repeatedly — leave the session
 }
 
@@ -174,7 +172,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
 
   const handleContinue = (outcome: SpeakOutcome) => {
     cleanup()
-    onContinue(outcome)
+    onContinue(outcome, outcome === 'skipped' ? null : (soeResult?.score ?? null))
   }
 
   const handleAbort = () => {

@@ -135,6 +135,10 @@ export default function Stats() {
         ))}
       </div>
 
+      <p className="mb-4 px-1 text-[11px] leading-relaxed text-muted-foreground">
+        跟读和拼写各算一题：跟读没过关（或跳过）也记一次错误、进错题本，并重置该词的复习间隔。
+      </p>
+
       {/* Mastery by difficulty */}
       <div className="glass-card mb-4 rounded-[1.75rem] p-6 animate-fade-up [animation-delay:400ms]">
         <h2 className="mb-5 text-sm font-semibold text-muted-foreground">难度分层掌握</h2>
