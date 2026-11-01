@@ -1,5 +1,8 @@
 // Profile switching + v0→v1 migration test against the real store
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('profile-test', async () => {
 
 // zustand v5 persist reads window.localStorage — stub both for Node
 const mem = new Map<string, string>()
@@ -89,3 +92,4 @@ assert.equal(persisted.version, 3)
 assert.equal(persisted.state.profileList.length, 1)
 
 console.log('✅ all profile assertions passed')
+})

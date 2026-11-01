@@ -1,5 +1,8 @@
 import assert from 'node:assert'
 import { displayWord, difficultyOf } from '../src/lib/word-utils'
+import { test } from 'vitest'
+
+test('word-utils-test', async () => {
 
 const { useWordStore, wordsLoaded } = await import('../src/store/wordStore')
 await wordsLoaded
@@ -56,3 +59,4 @@ console.log('✅ word-utils assertions passed')
 }
 
 console.log('✅ findInExample assertions passed')
+})

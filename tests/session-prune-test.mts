@@ -1,6 +1,9 @@
 // R2: sessions referencing ids the dictionary no longer has must not strand
 // the study page — unknown ids are dropped and the cursor stays on the same word
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('session-prune-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -76,3 +79,4 @@ s().pruneSession(isKnown)
 assert.equal(s().currentSession, null)
 
 console.log('✅ session prune assertions passed')
+})

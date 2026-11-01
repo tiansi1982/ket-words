@@ -1,6 +1,9 @@
 // P3 cloud sync: merge semantics + store support (accounts, apply, migration)
 import assert from 'node:assert'
 import type { ProfileData } from '../src/types'
+import { test } from 'vitest'
+
+test('sync-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -142,3 +145,4 @@ s().clearSyncAccount('kid-a')
 assert.deepEqual(s().syncAccounts, {})
 
 console.log('sync-test: all assertions passed')
+})

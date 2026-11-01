@@ -2,6 +2,9 @@
 // release the mic — a leaked audio track keeps the mic indicator on and can
 // wedge iOS pages (the same class of bug that killed Web Speech recognition).
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('recorder-test', async () => {
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 class FakeTrack {
@@ -99,3 +102,4 @@ await assert.rejects(recorder.stop(), /not recording/)
 }
 
 console.log('✅ recorder assertions passed')
+})

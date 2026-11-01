@@ -1,5 +1,8 @@
 // R9: error-bank practice in resumable rounds, repeat offenders first
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('error-round-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -87,3 +90,4 @@ assert.deepEqual(mergeProfileData(base, { ...base, errorSession: round }).errorS
 assert.equal(mergeProfileData(base, base).errorSession, null)
 
 console.log('✅ error round assertions passed')
+})

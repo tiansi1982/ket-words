@@ -2,6 +2,9 @@
 // sentences, and within a daily budget; /api/device mints anonymous tokens.
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
+import { test } from 'vitest'
+
+test('soe-quota-test', async () => {
 
 // ── minimal in-memory D1 covering the statements these functions use ──
 class FakeD1 {
@@ -175,3 +178,4 @@ assert.equal(daysAgo(7, new Date('2026-01-10T00:00:00Z')), '2026-01-03')
 }
 
 console.log('✅ soe quota assertions passed')
+})

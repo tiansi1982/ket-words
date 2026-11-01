@@ -1,4 +1,7 @@
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('p2479-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -58,3 +61,4 @@ assert.equal(picked2.length, 10)
 assert.ok(picked2.every((w: any) => manyLearning.has(w.id)), 'all slots go to learning words')
 
 console.log('✅ P2/P4/P7 assertions passed')
+})

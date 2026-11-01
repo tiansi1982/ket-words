@@ -1,6 +1,9 @@
 // R10: per-profile settings with defaults, parent PIN, sync merge of settings
 import assert from 'node:assert'
 import type { ProfileData } from '../src/types'
+import { test } from 'vitest'
+
+test('settings-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -63,3 +66,4 @@ assert.deepEqual(mergeProfileData(base({}), base({ settings: { passScore: 75 } }
 assert.deepEqual(mergeProfileData(base({}), base({})).settings, {})
 
 console.log('✅ settings assertions passed')
+})

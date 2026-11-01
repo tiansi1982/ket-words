@@ -2,6 +2,9 @@
 // in the pure remap, in the persist v3 migration, and in the sync merge
 import assert from 'node:assert'
 import type { ProfileData } from '../src/types'
+import { test } from 'vitest'
+
+test('word-aliases-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -118,3 +121,4 @@ assert.equal(s.profileData['kid-b'].progress[645], undefined)
 }
 
 console.log('✅ word-alias assertions passed')
+})

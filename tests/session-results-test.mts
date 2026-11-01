@@ -1,5 +1,8 @@
 // R14: recordSpeak tracks the speaking side without touching counts or SRS
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('session-results-test', async () => {
 
 const mem = new Map<string, string>()
 const stub = {
@@ -54,3 +57,4 @@ s().recordSessionResult(1, { spelled: true })
 assert.equal(s().currentSession, null, 'no session → no-op')
 
 console.log('✅ session summary assertions passed')
+})

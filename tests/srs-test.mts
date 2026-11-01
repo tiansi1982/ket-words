@@ -1,5 +1,8 @@
 // SRS logic test — runs updateProgress/getDueReviewIds against the real store
 import assert from 'node:assert'
+import { test } from 'vitest'
+
+test('srs-test', async () => {
 
 // zustand v5 persist reads window.localStorage — stub both for Node
 const mem = new Map<string, string>()
@@ -79,3 +82,4 @@ patch(4, { wordId: 4, status: 'mastered', correctCount: 3, wrongCount: 0, lastSt
 assert.deepEqual(s().getDueReviewIds(), [2, 3, 4])
 
 console.log('✅ all SRS assertions passed')
+})

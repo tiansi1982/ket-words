@@ -2,6 +2,9 @@
 // parsing and PCM downsampling (src/services/soe.ts).
 import assert from 'node:assert'
 import { createHmac } from 'node:crypto'
+import { test } from 'vitest'
+
+test('soe-test', async () => {
 
 const { signSoeUrl } = await import('../functions/api/soe-url')
 const { parseSoeResult, toPcm16k } = await import('../src/services/soe')
@@ -117,3 +120,4 @@ console.log('✅ soe assertions passed')
   assert.ok(FakeAudioContext.resumes >= 1)
 }
 console.log('✅ shared AudioContext assertions passed')
+})
