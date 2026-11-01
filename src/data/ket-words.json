@@ -17,7 +17,7 @@
     "definition": "大约；关于",
     "example": "The film is about two hours long.",
     "example_cn": "这部电影大约两小时长。",
-    "ipa": "/əˈbɛʊt/"
+    "ipa": "/əˈbaʊt/"
   },
   {
     "id": 3,
@@ -67,7 +67,7 @@
     "definition": "表演；行动",
     "example": "He acts in school plays every year.",
     "example_cn": "他每年都参加学校的话剧演出。",
-    "ipa": "/æk/"
+    "ipa": "/ækt/"
   },
   {
     "id": 8,
@@ -107,7 +107,7 @@
     "definition": "实际上",
     "example": "I actually enjoyed the book.",
     "example_cn": "我实际上很喜欢这本书。",
-    "ipa": "/-ɪ/"
+    "ipa": "/ˈæk.tʃu.ə.li/"
   },
   {
     "id": 12,
@@ -535,7 +535,7 @@
     "definition": "应用程序",
     "example": "I use a learning app every day.",
     "example_cn": "我每天都用一个学习应用程序。",
-    "ipa": "[ʔæʔp̚]"
+    "ipa": "/æp/"
   },
   {
     "id": 55,
@@ -1091,7 +1091,7 @@
     "definition": "甲虫",
     "example": "We found a green beetle in the garden.",
     "example_cn": "我们在花园里发现了一只绿色甲虫。",
-    "ipa": "[ˈbiɾəɫ]"
+    "ipa": "/ˈbiː.təl/"
   },
   {
     "id": 111,
@@ -1211,7 +1211,7 @@
     "definition": "更好的",
     "example": "I feel better today than yesterday.",
     "example_cn": "我今天感觉比昨天好多了。",
-    "ipa": "[ˈbeɾə]"
+    "ipa": "/ˈbet.ə/"
   },
   {
     "id": 123,
@@ -1251,7 +1251,7 @@
     "definition": "自行车",
     "example": "Let's go for a bike ride in the park.",
     "example_cn": "我们去公园骑自行车吧。",
-    "ipa": "[bɐɪk]"
+    "ipa": "/baɪk/"
   },
   {
     "id": 127,
@@ -1500,7 +1500,7 @@
     "definition": "书柜",
     "example": "The bookcase is full of books.",
     "example_cn": "书柜里满是书。",
-    "ipa": "[ˈbʊkːeɪs]"
+    "ipa": "/ˈbʊk.keɪs/"
   },
   {
     "id": 152,
@@ -1599,7 +1599,7 @@
     "definition": "打扰；费心",
     "example": "Don't bother me when I'm studying.",
     "example_cn": "我学习的时候不要打扰我。",
-    "ipa": "[ˈbɒðə(ɹ)]"
+    "ipa": "/ˈbɒð.ə/"
   },
   {
     "id": 162,
@@ -1847,7 +1847,7 @@
     "definition": "公共汽车",
     "example": "I take the bus to school every day.",
     "example_cn": "我每天坐公共汽车上学。",
-    "ipa": "/bɐs/"
+    "ipa": "/bʌs/"
   },
   {
     "id": 187,
@@ -1933,7 +1933,7 @@
     "definition": "蝴蝶",
     "example": "A beautiful butterfly landed on the flower.",
     "example_cn": "一只美丽的蝴蝶落在了花上。",
-    "ipa": "[ˈbʌtəflaɪ]"
+    "ipa": "/ˈbʌt.ə.flaɪ/"
   },
   {
     "id": 196,
@@ -2052,7 +2052,7 @@
     "definition": "露营",
     "example": "We camped by the river last summer.",
     "example_cn": "去年夏天我们在河边露营。",
-    "ipa": "[kʰɛəmp]"
+    "ipa": "/kæmp/"
   },
   {
     "id": 208,
@@ -2368,7 +2368,7 @@
     "definition": "麦片；谷类食品",
     "example": "I eat cereal with milk for breakfast.",
     "example_cn": "我早餐吃加牛奶的麦片。",
-    "ipa": "[ˈsɪəɹiːəɫ]"
+    "ipa": "/ˈsɪə.ri.əl/"
   },
   {
     "id": 240,
@@ -3451,7 +3451,7 @@
     "definition": "舞蹈；舞会",
     "example": "She performed a beautiful dance at the show.",
     "example_cn": "她在演出中表演了一段美丽的舞蹈。",
-    "ipa": "[dɑːns]"
+    "ipa": "/dɑːns/"
   },
   {
     "id": 349,
@@ -4524,7 +4524,7 @@
     "definition": "环境",
     "example": "We should protect the environment.",
     "example_cn": "我们应该保护环境。",
-    "ipa": "/-mɪnt/"
+    "ipa": "/ɪnˈvaɪ.rən.mənt/"
   },
   {
     "id": 457,
@@ -5070,7 +5070,7 @@
     "definition": "电影；胶卷",
     "example": "Let's watch a film tonight.",
     "example_cn": "今晚我们来看电影吧。",
-    "ipa": "[ˈfɪlm̩]"
+    "ipa": "/fɪlm/"
   },
   {
     "id": 512,
@@ -5278,7 +5278,7 @@
     "definition": "脚",
     "example": "She hurt her foot while playing sports.",
     "example_cn": "她运动时伤到了脚。",
-    "ipa": "[fɵʔt]"
+    "ipa": "/fʊt/"
   },
   {
     "id": 533,
@@ -5288,7 +5288,7 @@
     "definition": "足球",
     "example": "Football is the most popular sport in the world.",
     "example_cn": "足球是世界上最受欢迎的运动。",
-    "ipa": "[fʷʊʔt̚bɑɫ]"
+    "ipa": "/ˈfʊt.bɔːl/"
   },
   {
     "id": 534,
@@ -5671,7 +5671,7 @@
     "definition": "山羊",
     "example": "We fed the goats at the farm.",
     "example_cn": "我们在农场喂了山羊。",
-    "ipa": "/ɡɐ̟ʉt/"
+    "ipa": "/ɡəʊt/"
   },
   {
     "id": 573,
@@ -6071,7 +6071,7 @@
     "definition": "草",
     "example": "We sat on the grass in the park.",
     "example_cn": "我们坐在公园的草地上。",
-    "ipa": "[ɡɹ̠ɑːs]"
+    "ipa": "/ɡrɑːs/"
   },
   {
     "id": 627,
@@ -6237,7 +6237,7 @@
     "definition": "帽子",
     "example": "She wore a red hat in the rain.",
     "example_cn": "她在雨中戴着一顶红色帽子。",
-    "ipa": "[hat]"
+    "ipa": "/hæt/"
   },
   {
     "id": 655,
@@ -6692,7 +6692,7 @@
     "definition": "巨大的",
     "example": "There was a huge cake at the party.",
     "example_cn": "派对上有一个巨大的蛋糕。",
-    "ipa": "[hʊudʒ]"
+    "ipa": "/hjuːdʒ/"
   },
   {
     "id": 701,
@@ -6742,7 +6742,7 @@
     "definition": "冰",
     "example": "There is ice on the road this morning.",
     "example_cn": "今天早上路上有冰。",
-    "ipa": "[ʌɪs]"
+    "ipa": "/aɪs/"
   },
   {
     "id": 706,
@@ -7424,7 +7424,7 @@
     "definition": "语言",
     "example": "She can speak three languages.",
     "example_cn": "她会说三种语言。",
-    "ipa": "[ˈleɪŋɡwɪd͡ʒ]"
+    "ipa": "/ˈlæŋ.ɡwɪdʒ/"
   },
   {
     "id": 775,
@@ -8896,7 +8896,7 @@
     "definition": "国籍",
     "example": "What is your nationality?",
     "example_cn": "你是哪国人？",
-    "ipa": "/-ˈnæl.ti/"
+    "ipa": "/ˌnæʃ.ənˈæl.ə.ti/"
   },
   {
     "id": 924,
@@ -9687,7 +9687,7 @@
     "definition": "熊猫",
     "example": "The giant panda is from China.",
     "example_cn": "大熊猫来自中国。",
-    "ipa": "/ˈpæn-/"
+    "ipa": "/ˈpæn.də/"
   },
   {
     "id": 1004,
@@ -9737,7 +9737,7 @@
     "definition": "公园",
     "example": "We played football in the park.",
     "example_cn": "我们在公园里踢足球。",
-    "ipa": "[paːk]"
+    "ipa": "/pɑːk/"
   },
   {
     "id": 1009,
@@ -9796,7 +9796,7 @@
     "definition": "通过",
     "example": "She passed her driving test last week.",
     "example_cn": "她上周通过了驾驶考试。",
-    "ipa": "[pʰäːs]"
+    "ipa": "/pɑːs/"
   },
   {
     "id": 1015,
@@ -9856,7 +9856,7 @@
     "definition": "小路",
     "example": "We walked along the path in the forest.",
     "example_cn": "我们沿着森林里的小路走。",
-    "ipa": "[pʰɑːθ]"
+    "ipa": "/pɑːθ/"
   },
   {
     "id": 1021,
@@ -10003,7 +10003,7 @@
     "definition": "演出",
     "example": "The evening performance starts at seven.",
     "example_cn": "晚间演出七点开始。",
-    "ipa": "[pə.ˈfɔː.məns]"
+    "ipa": "/pəˈfɔː.məns/"
   },
   {
     "id": 1036,
@@ -10410,7 +10410,7 @@
     "definition": "警察",
     "example": "Call the police if you see something wrong.",
     "example_cn": "如果你发现问题，请打电话给警察。",
-    "ipa": "[pəˈliːs]"
+    "ipa": "/pəˈliːs/"
   },
   {
     "id": 1077,
@@ -10794,7 +10794,7 @@
     "definition": "推",
     "example": "Push the door, don't pull it.",
     "example_cn": "往里推门，不要拉。",
-    "ipa": "[pʷʊʃ]"
+    "ipa": "/pʊʃ/"
   },
   {
     "id": 1116,
@@ -11788,7 +11788,7 @@
     "definition": "句子",
     "example": "Write five sentences about your hobby.",
     "example_cn": "写五个关于你爱好的句子。",
-    "ipa": "[ˈsɛntn̩t͡s]"
+    "ipa": "/ˈsen.təns/"
   },
   {
     "id": 1216,
@@ -12728,7 +12728,7 @@
     "definition": "蜘蛛",
     "example": "There is a spider in the corner.",
     "example_cn": "角落里有一只蜘蛛。",
-    "ipa": "[ˈspʌɪ̯ɾə(ɹ)]"
+    "ipa": "/ˈspaɪ.də/"
   },
   {
     "id": 1311,
@@ -13686,7 +13686,7 @@
     "definition": "感谢",
     "example": "I want to thank you for your help.",
     "example_cn": "我想感谢你的帮助。",
-    "ipa": "[θaŋk]"
+    "ipa": "/θæŋk/"
   },
   {
     "id": 1408,
@@ -13973,7 +13973,7 @@
     "definition": "番茄",
     "example": "She put tomatoes in the salad.",
     "example_cn": "她在沙拉里放了番茄。",
-    "ipa": "[tʰə̥ˈmɑːtʰəʊ]"
+    "ipa": "/təˈmɑː.təʊ/"
   },
   {
     "id": 1437,

@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "for f in tests/*.mts; do npx tsx --tsconfig tsconfig.app.json $f || exit 1; done"
+    "validate": "node scripts/validate-words.mjs",
+    "test": "npm run validate && for f in tests/*.mts; do npx tsx --tsconfig tsconfig.app.json $f || exit 1; done"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
