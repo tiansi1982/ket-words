@@ -11,6 +11,7 @@ const ErrorList = lazy(() => import('@/pages/ErrorList'))
 const Stats = lazy(() => import('@/pages/Stats'))
 const Practice = lazy(() => import('@/pages/Practice'))
 const Settings = lazy(() => import('@/pages/Settings'))
+const Words = lazy(() => import('@/pages/Words'))
 
 function Centered({ children }: { children: ReactNode }) {
   return <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4">{children}</div>
@@ -85,6 +86,7 @@ export default function App() {
             <Route path="/stats" element={<Stats />} />
             <Route path="/practice" element={<Practice />} />
             <Route path="/settings" element={<Settings />} />
+            <Route path="/words" element={<Words />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

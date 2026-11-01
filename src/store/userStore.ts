@@ -33,6 +33,11 @@ interface UserStore extends UserState {
   recordSpeak: (wordId: number, score: number | null, passed: boolean) => void
   addToErrorBank: (wordId: number) => void
   removeFromErrorBank: (wordId: number) => void
+  // "I already know these" (F2): straight into the review ladder at
+  // KNOWN_SRS_LEVEL, out of the error bank; words already mastered keep their
+  // own schedule. resetWords is the reverse: back to brand new.
+  markKnown: (wordIds: number[]) => void
+  resetWords: (wordIds: number[]) => void
   // Error-bank rounds (R9): ERROR_BATCH words per round, repeat offenders first
   startErrorRound: () => void
   advanceErrorRound: (cleared: boolean) => void
@@ -62,6 +67,9 @@ export function orderErrorBank(errorBank: number[], progress: Record<number, Wor
 // Ebbinghaus-style review intervals in days, indexed by srsLevel.
 // Passing the last one graduates the word (dueDate = null).
 export const SRS_INTERVALS = [1, 3, 7, 15, 30]
+
+// Words marked as already known enter the ladder here (7 days to first review)
+export const KNOWN_SRS_LEVEL = 2
 
 export function toDateStr(d: Date): string {
   // Local date, not UTC — toISOString() would roll the day over at 8am in China
@@ -381,6 +389,51 @@ export const useUserStore = create<UserStore>()(
         set((state) => ({
           errorBank: state.errorBank.filter((id) => id !== wordId),
         })),
+
+      markKnown: (wordIds) =>
+        set((state) => {
+          const now = Date.now()
+          const dueDate = daysFromNowStr(SRS_INTERVALS[KNOWN_SRS_LEVEL])
+          const progress = { ...state.progress }
+          for (const wordId of wordIds) {
+            const existing = progress[wordId]
+            if (existing?.status === 'mastered') continue
+            progress[wordId] = {
+              ...existing,
+              wordId,
+              status: 'mastered',
+              correctCount: Math.max(existing?.correctCount ?? 0, 3),
+              wrongCount: existing?.wrongCount ?? 0,
+              consecutiveWrong: 0,
+              srsLevel: KNOWN_SRS_LEVEL,
+              dueDate,
+              lastStudied: now,
+            }
+          }
+          const ids = new Set(wordIds)
+          return { progress, errorBank: state.errorBank.filter((id) => !ids.has(id)) }
+        }),
+
+      resetWords: (wordIds) =>
+        set((state) => {
+          // A fresh record rather than a deletion, so the sync merge (newest
+          // lastStudied wins) doesn't resurrect the old one from the cloud
+          const now = Date.now()
+          const progress = { ...state.progress }
+          for (const wordId of wordIds) {
+            progress[wordId] = {
+              wordId,
+              status: 'new',
+              correctCount: 0,
+              wrongCount: 0,
+              consecutiveWrong: 0,
+              srsLevel: 0,
+              lastStudied: now,
+              speakFailCount: 0,
+            }
+          }
+          return { progress }
+        }),
 
       startErrorRound: () =>
         set((state) => ({

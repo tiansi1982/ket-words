@@ -7,7 +7,7 @@ import { pct } from '@/lib/utils'
 import ProfileSwitcher from '@/components/ProfileSwitcher'
 import ProgressBar from '@/components/ProgressBar'
 import { Button } from '@/components/ui/button'
-import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check, SlidersHorizontal } from 'lucide-react'
+import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check, SlidersHorizontal, BookA } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 function EntryRow({
@@ -160,6 +160,13 @@ export default function Home() {
             tileClass="bg-linear-to-br from-sky-400 to-blue-600"
             label="选择题练习"
             onClick={() => navigate('/practice')}
+          />
+          <div className="mx-4 h-px bg-border/60" />
+          <EntryRow
+            icon={<BookA className="h-5 w-5" />}
+            tileClass="bg-linear-to-br from-violet-400 to-purple-600"
+            label="单词本"
+            onClick={() => navigate('/words')}
           />
           <div className="mx-4 h-px bg-border/60" />
           <EntryRow
