@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useUserStore } from '@/store/userStore'
 import { syncConfigured, signUp, logIn, syncProfile, syncErrorText } from '@/services/sync'
 import { Cloud, CloudOff, RefreshCw } from 'lucide-react'
+import { usePinGate } from '@/lib/use-pin-gate'
 
 function lastSyncText(ts?: number): string {
   if (!ts) return '尚未同步'
@@ -26,6 +27,7 @@ export default function SyncPanel() {
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmUnbind, setConfirmUnbind] = useState(false)
+  const { guard, dialog } = usePinGate('解绑云同步需要家长 PIN')
 
   if (!syncConfigured) return null
 
@@ -196,8 +198,8 @@ export default function SyncPanel() {
               {confirmUnbind ? (
                 <button
                   onClick={() => {
-                    clearSyncAccount(activeProfileId)
                     setConfirmUnbind(false)
+                    guard(() => clearSyncAccount(activeProfileId))
                   }}
                   className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-transform active:scale-95"
                 >
@@ -213,6 +215,7 @@ export default function SyncPanel() {
               )}
             </div>
           )}
+          {dialog}
           {error && <p className="text-xs font-medium text-destructive">{error}</p>}
           {!account && (
             <p className="text-[11px] leading-relaxed text-muted-foreground">

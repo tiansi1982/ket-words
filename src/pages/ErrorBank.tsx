@@ -5,6 +5,7 @@ import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
+import { useSettings } from '@/lib/use-settings'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
@@ -26,6 +27,7 @@ export default function ErrorBank() {
   const { errorBank, progress, updateProgress, recordSpeak, removeFromErrorBank } = useUserStore()
   const { getErrorWords, checkSpelling } = useWordStore()
   const online = useOnline()
+  const settings = useSettings()
 
   // Snapshot at mount: answering correctly removes words from errorBank in the
   // store, and a live-derived list would shift under the current index
@@ -107,7 +109,7 @@ export default function ErrorBank() {
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (correct && !speakFailed) removeFromErrorBank(currentWord.id)
-    tts.speakAll([baseWord(currentWord.word), currentWord.example])
+    if (settings.autoSpeak) tts.speakAll([baseWord(currentWord.word), currentWord.example])
   }
 
   const handleNext = () => {
@@ -131,6 +133,7 @@ export default function ErrorBank() {
         <SentenceSpeak
           key={currentWord.id}
           word={currentWord}
+          passScore={settings.passScore}
           continueLabel="继续拼写 →"
           skipLabel="跳过跟读"
           onContinue={handleSpeakDone}

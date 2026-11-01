@@ -4,6 +4,7 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
+import { useSettings } from '@/lib/use-settings'
 import { displayWord, spellingHint } from '@/lib/word-utils'
 import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
 import SessionSummary from '@/components/SessionSummary'
@@ -37,6 +38,7 @@ export default function Study() {
   const { currentSession, progress, updateProgress, recordSpeak, recordSessionResult, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
+  const settings = useSettings()
 
   // A session saved before a word-list change may reference ids that no longer
   // exist; drop them (cursor preserved) instead of rendering an empty card with
@@ -62,10 +64,10 @@ export default function Study() {
   }, [finished]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (currentWord && phase === 'show') {
+    if (currentWord && phase === 'show' && settings.autoSpeak) {
       speakWordAndExample(currentWord)
     }
-  }, [currentWord, phase])
+  }, [currentWord, phase, settings.autoSpeak])
 
   const goToQuiz = () => {
     setPhase('quiz')
@@ -94,7 +96,7 @@ export default function Study() {
     updateProgress(currentWord.id, correct)
     recordSessionResult(currentWord.id, { spelled: correct })
     if (!correct) addToErrorBank(currentWord.id)
-    speakWordAndExample(currentWord)
+    if (settings.autoSpeak) speakWordAndExample(currentWord)
   }
 
   const handleNext = () => {
@@ -179,6 +181,7 @@ export default function Study() {
         <SentenceSpeak
           key={currentWord.id}
           word={currentWord}
+          passScore={settings.passScore}
           continueLabel="继续拼写 →"
           skipLabel="跳过发音"
           onContinue={handleSpeakDone}

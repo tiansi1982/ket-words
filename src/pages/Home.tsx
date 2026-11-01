@@ -7,7 +7,7 @@ import { pct } from '@/lib/utils'
 import ProfileSwitcher from '@/components/ProfileSwitcher'
 import ProgressBar from '@/components/ProgressBar'
 import { Button } from '@/components/ui/button'
-import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check } from 'lucide-react'
+import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check, SlidersHorizontal } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 function EntryRow({
@@ -167,6 +167,13 @@ export default function Home() {
             tileClass="bg-linear-to-br from-teal-400 to-emerald-600"
             label="学习统计"
             onClick={() => navigate('/stats')}
+          />
+          <div className="mx-4 h-px bg-border/60" />
+          <EntryRow
+            icon={<SlidersHorizontal className="h-5 w-5" />}
+            tileClass="bg-linear-to-br from-slate-400 to-slate-600"
+            label="设置"
+            onClick={() => navigate('/settings')}
           />
         </div>
 

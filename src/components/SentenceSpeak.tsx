@@ -3,7 +3,7 @@ import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
 import { startSoeSession, unlockAudioContext, type SoeStart, type SoeResult } from '@/services/soe'
 import { displayWord, findInExample } from '@/lib/word-utils'
-import { PASS_SCORE, speakWordAndExample } from '@/lib/speak'
+import { speakWordAndExample } from '@/lib/speak'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
@@ -43,14 +43,16 @@ function scoreColor(score: number): string {
   return 'text-red-500'
 }
 
-function scoreCheer(score: number): string {
-  if (score >= PASS_SCORE) return '🎉 读得真棒！'
-  if (score >= 60) return `👍 不错，不过没到 ${PASS_SCORE} 分，会记入错题本，再录一遍试试`
-  return `💪 没到 ${PASS_SCORE} 分，会记入错题本，多跟读几遍试试`
+function scoreCheer(score: number, passScore: number): string {
+  if (score >= passScore) return '🎉 读得真棒！'
+  if (score >= 60) return `👍 不错，不过没到 ${passScore} 分，会记入错题本，再录一遍试试`
+  return `💪 没到 ${passScore} 分，会记入错题本，多跟读几遍试试`
 }
 
 interface SentenceSpeakProps {
   word: Word
+  // Reading at or above this cloud score passes (parent setting, default 90)
+  passScore: number
   continueLabel: string // e.g. '继续拼写 →' / '下一个 →'
   skipLabel: string // emergency-exit label, e.g. '跳过发音'
   // score is the cloud score of the take the child continued with, null when skipped
@@ -62,7 +64,7 @@ interface SentenceSpeakProps {
 // child reading it, and plays the recording back for comparison against the
 // TTS reading. When Tencent SOE is configured, the same recording is also
 // scored in the cloud (overall + per word). Used by Study and ErrorBank.
-export default function SentenceSpeak({ word, continueLabel, skipLabel, onContinue, onAbort }: SentenceSpeakProps) {
+export default function SentenceSpeak({ word, passScore, continueLabel, skipLabel, onContinue, onAbort }: SentenceSpeakProps) {
   const [state, setState] = useState<SpeakState>('idle')
   const [error, setError] = useState('')
   const [audioUrl, setAudioUrl] = useState('')
@@ -182,7 +184,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
 
   // Continuing is only offered once a take has a score
   const recordedOutcome: SpeakOutcome =
-    soeResult && soeResult.score >= PASS_SCORE ? 'passed' : 'failed'
+    soeResult && soeResult.score >= passScore ? 'passed' : 'failed'
 
   // Skipping is reserved for stuck/broken situations
   const canSkip = !!error || stuck
@@ -245,7 +247,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
                   scoring
                     ? <span className="inline-flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> 正在打分…</span>
                     : soeResult
-                      ? scoreCheer(soeResult.score)
+                      ? scoreCheer(soeResult.score, passScore)
                       : `😕 打分没成功（第 ${scoreFails}/${MAX_SCORE_FAILS} 次），可能是网络不太稳定，请再录一遍`
                 )}
               </>
@@ -259,7 +261,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
                 value={soeResult.score}
                 className="h-2 flex-1"
                 barClassName={`duration-700 ${
-                  soeResult.score >= PASS_SCORE
+                  soeResult.score >= passScore
                     ? 'bg-gradient-to-r from-green-400 to-emerald-500'
                     : soeResult.score >= 60
                       ? 'bg-gradient-to-r from-amber-400 to-yellow-500'

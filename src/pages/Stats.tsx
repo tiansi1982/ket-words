@@ -1,15 +1,18 @@
 import { useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useUserStore, toDateStr } from '@/store/userStore'
+import { useSettings } from '@/lib/use-settings'
 import { useWordStore } from '@/store/wordStore'
 import { difficultyOf, type Difficulty } from '@/lib/word-utils'
 import { pct } from '@/lib/utils'
 import { BackButton } from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
-import { CircleCheck, BookOpen, Clock, Trophy, Zap, Target, Flame } from 'lucide-react'
+import { CircleCheck, BookOpen, Clock, Trophy, Zap, Target, Flame, SlidersHorizontal, ChevronRight } from 'lucide-react'
 
 export default function Stats() {
-  const { progress, errorBank, dailyGoal, setDailyGoal, getMasteredIds, getDueReviewIds, getStreak, dailyLog } =
-    useUserStore()
+  const navigate = useNavigate()
+  const { progress, errorBank, dailyGoal, getMasteredIds, getDueReviewIds, getStreak, dailyLog } = useUserStore()
+  const settings = useSettings()
   const { words } = useWordStore()
 
   const all = Object.values(progress)
@@ -159,25 +162,20 @@ export default function Stats() {
         </div>
       </div>
 
-      {/* Daily goal setting */}
-      <div className="glass-card mt-2 rounded-[1.75rem] p-6 animate-fade-up [animation-delay:460ms]">
-        <h2 className="mb-4 text-sm font-semibold text-muted-foreground">每日目标</h2>
-        <div className="glass-chip flex gap-1 rounded-full p-1">
-          {[10, 20, 30, 50].map((n) => (
-            <button
-              key={n}
-              onClick={() => setDailyGoal(n)}
-              className={`flex-1 rounded-full py-2 text-sm font-semibold tabular-nums transition-all duration-200 ${
-                dailyGoal === n
-                  ? 'bg-brand-gradient text-white shadow-md'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {n} 个
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Goal / pass mark live in Settings now (R10) */}
+      <button
+        onClick={() => navigate('/settings')}
+        className="glass-card mt-2 flex w-full items-center gap-3 rounded-[1.4rem] p-4 text-left animate-fade-up [animation-delay:460ms] transition-colors hover:bg-muted/60"
+      >
+        <span className="icon-tile h-10 w-10 shrink-0 rounded-[0.85rem] bg-linear-to-br from-slate-400 to-slate-600">
+          <SlidersHorizontal className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1 text-sm">
+          <span className="font-semibold tabular-nums">每日目标 {dailyGoal} 个 · 跟读通过线 {settings.passScore} 分</span>
+          <span className="block text-xs text-muted-foreground">在「设置」里调整</span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+      </button>
     </div>
   )
 }

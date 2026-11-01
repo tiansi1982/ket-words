@@ -143,6 +143,8 @@ export function mergeProfileData(local: ProfileData, remote: ProfileData): Profi
     progress,
     errorBank,
     dailyLog,
+    // local choices win, remote fills what this device never set
+    settings: { ...(remote.settings ?? {}), ...(local.settings ?? {}) },
   }
 }
 

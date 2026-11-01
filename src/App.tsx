@@ -9,6 +9,7 @@ const Study = lazy(() => import('@/pages/Study'))
 const ErrorBank = lazy(() => import('@/pages/ErrorBank'))
 const Stats = lazy(() => import('@/pages/Stats'))
 const Practice = lazy(() => import('@/pages/Practice'))
+const Settings = lazy(() => import('@/pages/Settings'))
 
 function Centered({ children }: { children: ReactNode }) {
   return <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-4">{children}</div>
@@ -81,6 +82,7 @@ export default function App() {
             <Route path="/error-bank" element={<ErrorBank />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/practice" element={<Practice />} />
+            <Route path="/settings" element={<Settings />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>

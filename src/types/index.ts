@@ -59,6 +59,12 @@ export interface ProfileMeta {
   name: string
 }
 
+// Per-profile preferences (R10). Stored partially; read via resolveSettings()
+export interface ProfileSettings {
+  passScore: number // read-aloud pass mark, 60–100 (default 90)
+  autoSpeak: boolean // auto-play word + sentence on the show/result cards
+}
+
 // Per-profile learning data. The active profile's copy lives at the top level
 // of UserState (so pages read it directly); inactive profiles' copies are
 // stashed in profileData and swapped in on switch.
@@ -68,6 +74,7 @@ export interface ProfileData {
   progress: Record<number, WordProgress>
   errorBank: number[] // wordIds in error bank
   dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
+  settings?: Partial<ProfileSettings> // absent/partial on data from before R10
 }
 
 // Sync account bound to one profile (P3 cloud sync, /api/sync backend)
@@ -84,4 +91,7 @@ export interface UserState extends ProfileData {
   profileList: ProfileMeta[]
   profileData: Record<string, ProfileData> // keyed by profile id, active profile excluded
   syncAccounts: Record<string, SyncAccount> // keyed by profile id
+  // Device-level parent PIN (4 digits) gating destructive actions and parent
+  // settings; not synced. null/undefined = not set
+  parentPin?: string | null
 }

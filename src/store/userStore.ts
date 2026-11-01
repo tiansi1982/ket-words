@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings } from '@/types'
 import { pruneSessionWords } from '@/lib/session'
 import { remapProfileData } from '@/lib/word-aliases'
 
@@ -17,6 +17,8 @@ interface UserStore extends UserState {
   // Replace a profile's data (used by cloud sync after merging)
   applyProfileData: (profileId: string, data: ProfileData) => void
   setDailyGoal: (goal: number) => void
+  updateSettings: (patch: Partial<ProfileSettings>) => void
+  setParentPin: (pin: string | null) => void
   startDailySession: (wordIds: number[]) => void
   advanceSession: () => void
   // Drop session words the dictionary no longer has (e.g. after a word-list
@@ -81,6 +83,7 @@ const emptyProfileData = (): ProfileData => ({
   progress: {},
   errorBank: [],
   dailyLog: {},
+  settings: {},
 })
 
 // The active profile's data as stored top-level in state
@@ -91,6 +94,7 @@ function snapshot(s: UserState): ProfileData {
     progress: s.progress,
     errorBank: s.errorBank,
     dailyLog: s.dailyLog ?? {},
+    settings: s.settings ?? {},
   }
 }
 
@@ -109,11 +113,13 @@ export const useUserStore = create<UserStore>()(
       profileList: [{ id: initialProfileId, name: '孩子 1' }],
       profileData: {},
       syncAccounts: {},
+      parentPin: null,
       dailyGoal: 20,
       currentSession: null,
       progress: {},
       errorBank: [],
       dailyLog: {},
+      settings: {},
 
       getTodayDate: () => todayStr(),
 
@@ -208,6 +214,10 @@ export const useUserStore = create<UserStore>()(
         }),
 
       setDailyGoal: (goal) => set({ dailyGoal: goal }),
+
+      updateSettings: (patch) => set((state) => ({ settings: { ...(state.settings ?? {}), ...patch } })),
+
+      setParentPin: (pin) => set({ parentPin: pin }),
 
       startDailySession: (wordIds) =>
         set({

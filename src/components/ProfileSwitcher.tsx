@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useUserStore } from '@/store/userStore'
 import { ChevronDown, Plus, Pencil, Trash2, Check } from 'lucide-react'
 import SyncPanel from '@/components/SyncPanel'
+import { usePinGate } from '@/lib/use-pin-gate'
 
 // "谁在学?" — switch between kids' profiles on the home page
 export default function ProfileSwitcher() {
@@ -15,6 +16,8 @@ export default function ProfileSwitcher() {
   const [draft, setDraft] = useState('')
 
   const active = profileList.find((p) => p.id === activeProfileId)
+  // Deleting a kid's profile asks for the parent PIN when one is set (R10)
+  const { guard, dialog } = usePinGate('删除档案需要家长 PIN')
 
   const toggleOpen = () => {
     setOpen(!open)
@@ -108,8 +111,8 @@ export default function ProfileSwitcher() {
                     (confirmDeleteId === p.id ? (
                       <button
                         onClick={() => {
-                          deleteProfile(p.id)
                           setConfirmDeleteId(null)
+                          guard(() => deleteProfile(p.id))
                         }}
                         className="rounded-full bg-destructive px-2.5 py-1 text-xs font-semibold text-white shadow-sm transition-transform active:scale-95"
                       >
@@ -162,6 +165,7 @@ export default function ProfileSwitcher() {
           <SyncPanel />
         </div>
       )}
+      {dialog}
     </div>
   )
 }
