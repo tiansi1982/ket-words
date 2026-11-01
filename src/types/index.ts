@@ -7,6 +7,10 @@ export interface Word {
   example: string
   example_cn: string
   ipa?: string // British IPA, e.g. "/əˈbaʊt/" — absent for most phrases
+  // Inflections that differ from the base spelling (flew, teeth, looks after…),
+  // so the example sentence can be highlighted / blanked. Only set when the
+  // example itself uses one; validate-words enforces that
+  forms?: string[]
 }
 
 export type StudyStatus = 'new' | 'learning' | 'mastered'

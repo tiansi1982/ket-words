@@ -39,6 +39,23 @@ export function matchesSpelling(input: string, word: string): boolean {
   return acceptedSpellings(word).some((s) => normalize(s) === n)
 }
 
+// 例句中目标词（或其变形，如 go → goes、fly → flew）的位置，用于高亮/挖空。
+// 先试 forms 里的不规则变形（更长、更具体），再试各个可接受拼写 + 任意后缀
+// （"grand(d)ad" 的例句用的是 granddad）；都找不到返回 null（校验脚本会报错）
+export function findInExample(
+  example: string,
+  word: string,
+  forms: readonly string[] = []
+): { index: number; length: number } | null {
+  const candidates = [...forms, ...acceptedSpellings(word)]
+  for (const c of candidates) {
+    const escaped = c.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+    const m = example.match(new RegExp(`\\b${escaped}\\w*`, 'i'))
+    if (m && m.index !== undefined) return { index: m.index, length: m[0].length }
+  }
+  return null
+}
+
 // 拼写提示：每个单词只露首字母，其余用下划线占位
 // "ice cream" → "i__ c____"
 export function spellingHint(word: string): string {

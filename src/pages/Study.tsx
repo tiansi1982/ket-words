@@ -151,7 +151,7 @@ export default function Study() {
             <div className="mt-7 border-t border-border/70 pt-7 text-left">
               <p className="text-center text-2xl font-bold tracking-tight">{currentWord.definition}</p>
               <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground italic">
-                <ExampleSentence word={currentWord.word} example={currentWord.example} />
+                <ExampleSentence word={currentWord.word} example={currentWord.example} forms={currentWord.forms} />
               </p>
               <p className="mt-1.5 text-xs text-muted-foreground/80">{currentWord.example_cn}</p>
             </div>
@@ -231,7 +231,7 @@ export default function Study() {
             <div className="mt-4 border-t border-current/10 pt-4 text-left">
               <p className="mb-2 text-center text-sm font-semibold">{currentWord.definition}</p>
               <p className="text-xs leading-relaxed text-muted-foreground italic">
-                <ExampleSentence word={currentWord.word} example={currentWord.example} />
+                <ExampleSentence word={currentWord.word} example={currentWord.example} forms={currentWord.forms} />
               </p>
               <p className="mt-1 text-xs text-muted-foreground/80">{currentWord.example_cn}</p>
             </div>

@@ -35,3 +35,24 @@ const ad = byWord('ad') // 广告 n，同义词 advert / advertisement
 assert.ok(checkSpelling('advertisement', ad), 'three-way synonym group accepted')
 
 console.log('✅ word-utils assertions passed')
+
+// ── findInExample: forms first (irregular inflections), then base + suffix (R5) ──
+{
+  const { findInExample } = await import('../src/lib/word-utils')
+  const hit = (ex: string, w: string, forms?: string[]) => {
+    const m = findInExample(ex, w, forms)
+    return m ? ex.slice(m.index, m.index + m.length) : null
+  }
+  assert.equal(hit('He goes to school.', 'go'), 'goes', 'base + suffix')
+  assert.equal(hit('We flew to Spain.', 'fly', ['flew', 'flown']), 'flew', 'irregular form from forms')
+  assert.equal(hit('Brush your teeth twice a day.', 'tooth', ['teeth']), 'teeth')
+  assert.equal(hit('She looks after her brother.', 'look after', ['looks after']), 'looks after', 'phrasal verb inflected')
+  assert.equal(hit('She has blonde hair.', 'blond(e)'), 'blonde', 'inline optional letter via suffix')
+  assert.equal(hit('A website has pages.', 'site'), null, 'no word boundary → no match')
+  assert.equal(hit('A website has pages.', 'site', ['website']), 'website', 'forms can name a derived word')
+  assert.equal(hit('Nothing here.', 'cat', ['cats']), null)
+  // every dictionary entry is highlightable
+  for (const w of words) assert.ok(findInExample(w.example, w.word, w.forms), `#${w.id} ${w.word} highlightable`)
+}
+
+console.log('✅ findInExample assertions passed')

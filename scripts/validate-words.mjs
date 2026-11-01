@@ -3,9 +3,9 @@
 //
 //   错误（退出码 1）：ID 不递增 / 必填字段缺失 / 词性与中文词性不一致 /
 //                    同拼写同词性重复 / 音标格式错误或是词典碎片 / 例句超 15 词 /
-//                    未知字段 / word-aliases.ts 与词库不一致
-//   警告（只打印）：  单词缺音标 / 例句里找不到原形或 forms 变形（R5 补齐后改为错误）/
-//                    预生成音频缺失或多余
+//                    未知字段 / word-aliases.ts 与词库不一致 /
+//                    例句里找不到原形或 forms 变形 / forms 与例句或基础拼写不符
+//   警告（只打印）：  单词缺音标 / 预生成音频缺失或多余
 //
 // 用法：node scripts/validate-words.mjs [--strict]   --strict 时警告也算失败
 import { readFileSync, readdirSync, existsSync } from 'node:fs'
@@ -85,7 +85,14 @@ for (const w of words) {
   }
   const forms = [...acceptedSpellings(w.word), ...(Array.isArray(w.forms) ? w.forms : [])]
   const inExample = forms.some((f) => new RegExp(`\\b${escapeRe(f)}\\w*`, 'i').test(w.example))
-  if (!inExample) warn('例句里找不到原形或 forms 变形（R5 补 forms 后改为错误）', `${where}: ${JSON.stringify(w.example)}`)
+  if (!inExample) err(`${where}: 例句里找不到原形或 forms 变形：${JSON.stringify(w.example)}（给词条加 forms: ["变形"]）`)
+  // forms are only for inflections the example actually uses — keep the data honest
+  if (Array.isArray(w.forms)) {
+    const spellings = acceptedSpellings(w.word)
+    const used = w.forms.filter((f) => new RegExp(`\\b${escapeRe(f)}\\b`, 'i').test(w.example))
+    if (used.length === 0) err(`${where}: forms 里没有一个出现在例句里`)
+    if (w.forms.some((f) => spellings.includes(f))) err(`${where}: forms 不应重复基础拼写`)
+  }
 }
 
 // word-aliases.ts：移除的 ID 不能还在，保留的 ID 必须存在

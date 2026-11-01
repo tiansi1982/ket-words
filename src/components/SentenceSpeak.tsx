@@ -2,7 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { tts } from '@/services/tts'
 import { recorder } from '@/services/recorder'
 import { startSoeSession, type SoeStart, type SoeResult } from '@/services/soe'
-import { baseWord, displayWord } from '@/lib/word-utils'
+import { displayWord, findInExample } from '@/lib/word-utils'
 import { PASS_SCORE, speakWordAndExample } from '@/lib/speak'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
@@ -26,17 +26,16 @@ const STUCK_SKIP_MS = 30000
 // asks for a retry, and this many failures aborts the session back home
 const MAX_SCORE_FAILS = 3
 
-// Example sentence with the target word (or its inflection, e.g. go → goes) highlighted
-export function ExampleSentence({ word, example }: { word: string; example: string }) {
-  const base = baseWord(word)
-  const escaped = base.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-  const m = example.match(new RegExp(`\\b${escaped}\\w*`, 'i'))
-  if (!m || m.index === undefined) return <>{example}</>
+// Example sentence with the target word (or its inflection, e.g. go → goes,
+// fly → flew via `forms`) highlighted
+export function ExampleSentence({ word, example, forms }: { word: string; example: string; forms?: string[] }) {
+  const m = findInExample(example, word, forms)
+  if (!m) return <>{example}</>
   return (
     <>
       {example.slice(0, m.index)}
-      <span className="text-primary font-bold">{m[0]}</span>
-      {example.slice(m.index + m[0].length)}
+      <span className="text-primary font-bold">{example.slice(m.index, m.index + m.length)}</span>
+      {example.slice(m.index + m.length)}
     </>
   )
 }
@@ -202,7 +201,7 @@ export default function SentenceSpeak({ word, continueLabel, skipLabel, onContin
         </div>
         {word.ipa && <p className="-mt-2 font-mono text-sm text-muted-foreground">{word.ipa}</p>}
         <p className="text-xl leading-relaxed font-medium">
-          <ExampleSentence word={word.word} example={word.example} />
+          <ExampleSentence word={word.word} example={word.example} forms={word.forms} />
         </p>
         <p className="text-xs text-muted-foreground/80">{word.example_cn}</p>
 

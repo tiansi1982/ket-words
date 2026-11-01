@@ -1718,7 +1718,13 @@
     "pos_cn": "短语动词",
     "definition": "（机器）坏掉；崩溃",
     "example": "Our car broke down on the way home.",
-    "example_cn": "我们的车在回家路上抛锚了。"
+    "example_cn": "我们的车在回家路上抛锚了。",
+    "forms": [
+      "broke down",
+      "broken down",
+      "breaks down",
+      "breaking down"
+    ]
   },
   {
     "id": 174,
@@ -2358,7 +2364,10 @@
     "definition": "世纪；一百年",
     "example": "This church is five centuries old.",
     "example_cn": "这座教堂已有五个世纪的历史。",
-    "ipa": "/ˈsɛn.t͡ʃə.ɹiː/"
+    "ipa": "/ˈsɛn.t͡ʃə.ɹiː/",
+    "forms": [
+      "centuries"
+    ]
   },
   {
     "id": 239,
@@ -4872,7 +4881,13 @@
     "pos_cn": "短语动词",
     "definition": "跌倒",
     "example": "She fell over on the ice and hurt her knee.",
-    "example_cn": "她在冰上跌倒，膝盖受伤了。"
+    "example_cn": "她在冰上跌倒，膝盖受伤了。",
+    "forms": [
+      "fell over",
+      "fallen over",
+      "falls over",
+      "falling over"
+    ]
   },
   {
     "id": 492,
@@ -5229,7 +5244,13 @@
     "definition": "飞；乘飞机",
     "example": "We flew to Spain for our holiday.",
     "example_cn": "我们乘飞机去西班牙度假。",
-    "ipa": "/flaɪ/"
+    "ipa": "/flaɪ/",
+    "forms": [
+      "flew",
+      "flown",
+      "flies",
+      "flying"
+    ]
   },
   {
     "id": 528,
@@ -5593,7 +5614,13 @@
     "definition": "给予；赠送",
     "example": "She gave me a beautiful present.",
     "example_cn": "她给了我一份漂亮的礼物。",
-    "ipa": "/ɡɪv/"
+    "ipa": "/ɡɪv/",
+    "forms": [
+      "gave",
+      "given",
+      "gives",
+      "giving"
+    ]
   },
   {
     "id": 565,
@@ -5642,7 +5669,13 @@
     "pos_cn": "短语动词",
     "definition": "离开；走开",
     "example": "The rain went away and the sun came out.",
-    "example_cn": "雨停了，太阳出来了。"
+    "example_cn": "雨停了，太阳出来了。",
+    "forms": [
+      "went away",
+      "gone away",
+      "goes away",
+      "going away"
+    ]
   },
   {
     "id": 570,
@@ -7869,7 +7902,12 @@
     "pos_cn": "短语动词",
     "definition": "照顾",
     "example": "She looks after her little brother after school.",
-    "example_cn": "放学后她照顾弟弟。"
+    "example_cn": "放学后她照顾弟弟。",
+    "forms": [
+      "looks after",
+      "looked after",
+      "looking after"
+    ]
   },
   {
     "id": 820,
@@ -7887,7 +7925,12 @@
     "pos_cn": "短语动词",
     "definition": "寻找",
     "example": "I am looking for my keys.",
-    "example_cn": "我在找我的钥匙。"
+    "example_cn": "我在找我的钥匙。",
+    "forms": [
+      "looks for",
+      "looked for",
+      "looking for"
+    ]
   },
   {
     "id": 822,
@@ -8343,7 +8386,10 @@
     "definition": "记忆",
     "example": "I have good memories of my holiday.",
     "example_cn": "我对假期有美好的记忆。",
-    "ipa": "/ˈmɛm(ə)ɹi/"
+    "ipa": "/ˈmɛm(ə)ɹi/",
+    "forms": [
+      "memories"
+    ]
   },
   {
     "id": 868,
@@ -12213,7 +12259,11 @@
     "definition": "网站",
     "example": "I found the answer on a website.",
     "example_cn": "我在一个网站上找到了答案。",
-    "ipa": "/saɪt/"
+    "ipa": "/saɪt/",
+    "forms": [
+      "website",
+      "sites"
+    ]
   },
   {
     "id": 1259,
@@ -12718,7 +12768,12 @@
     "definition": "花费",
     "example": "I spent all my money on books.",
     "example_cn": "我把所有的钱都花在买书上了。",
-    "ipa": "/spɛnd/"
+    "ipa": "/spɛnd/",
+    "forms": [
+      "spent",
+      "spends",
+      "spending"
+    ]
   },
   {
     "id": 1310,
@@ -12887,7 +12942,13 @@
     "definition": "偷窃",
     "example": "Someone stole my bike last night.",
     "example_cn": "昨晚有人偷了我的自行车。",
-    "ipa": "/stiːl/"
+    "ipa": "/stiːl/",
+    "forms": [
+      "stole",
+      "stolen",
+      "steals",
+      "stealing"
+    ]
   },
   {
     "id": 1327,
@@ -14013,7 +14074,10 @@
     "definition": "牙齿",
     "example": "Brush your teeth twice a day.",
     "example_cn": "每天刷两次牙。",
-    "ipa": "/tuːθ/"
+    "ipa": "/tuːθ/",
+    "forms": [
+      "teeth"
+    ]
   },
   {
     "id": 1441,
@@ -14731,7 +14795,13 @@
     "definition": "醒来",
     "example": "She woke early on the first day.",
     "example_cn": "第一天她很早就醒了。",
-    "ipa": "/ˈweɪk/"
+    "ipa": "/ˈweɪk/",
+    "forms": [
+      "woke",
+      "woken",
+      "wakes",
+      "waking"
+    ]
   },
   {
     "id": 1514,
@@ -14887,7 +14957,13 @@
     "definition": "穿",
     "example": "She wore a red coat today.",
     "example_cn": "她今天穿了一件红色外套。",
-    "ipa": "/wɛə/"
+    "ipa": "/wɛə/",
+    "forms": [
+      "wore",
+      "worn",
+      "wears",
+      "wearing"
+    ]
   },
   {
     "id": 1530,
@@ -15331,7 +15407,12 @@
     "definition": "锻炼",
     "example": "She works out at the gym three times a week.",
     "example_cn": "她每周去健身房锻炼三次。",
-    "ipa": "/ˌwəːk ˈaʊt/"
+    "ipa": "/ˌwəːk ˈaʊt/",
+    "forms": [
+      "works out",
+      "worked out",
+      "working out"
+    ]
   },
   {
     "id": 1575,
