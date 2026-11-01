@@ -23,6 +23,11 @@ const STUCK_SKIP_MS = 30000
 // asks for a retry, and this many failures aborts the session back home
 const MAX_SCORE_FAILS = 3
 
+// After this many scored takes below the bar, break the sentence down: show
+// the weakest words with their own play buttons (R11)
+const BREAKDOWN_AFTER = 3
+const BREAKDOWN_WORDS = 2
+
 // Example sentence with the target word (or its inflection, e.g. go → goes,
 // fly → flew via `forms`) highlighted
 export function ExampleSentence({ word, example, forms }: { word: string; example: string; forms?: string[] }) {
@@ -74,6 +79,8 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
   const [scoreFails, setScoreFails] = useState(0)
   // Today's scoring budget is used up (server answered 429, R1)
   const [quota, setQuota] = useState<{ limit?: number } | null>(null)
+  // Scored takes below the pass mark for this word
+  const [belowPass, setBelowPass] = useState(0)
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const stopTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const soePromise = useRef<Promise<SoeStart> | null>(null)
@@ -132,7 +139,8 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
     }
     setSoeResult(result)
     if (!result) setScoreFails((n) => n + 1)
-  }, [])
+    else if (result.score < passScore) setBelowPass((n) => n + 1)
+  }, [passScore])
 
   const handleRecord = useCallback(async () => {
     if (state === 'recording') {
@@ -188,6 +196,12 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
 
   // Skipping is reserved for stuck/broken situations
   const canSkip = !!error || stuck
+
+  // Stuck below the bar: offer the weakest words of the last take on their own
+  const breakdown =
+    belowPass >= BREAKDOWN_AFTER && soeResult && soeResult.score < passScore
+      ? [...soeResult.words].sort((a, b) => a.score - b.score).slice(0, BREAKDOWN_WORDS)
+      : []
 
   // Too many unscored takes: explain and end the session
   const scoreBroken = scoreFails >= MAX_SCORE_FAILS
@@ -257,17 +271,26 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
         {state === 'recorded' && soeResult && !scoring && (
           <div className="flex flex-col gap-2 animate-fade-up">
             <div className="flex items-center justify-center gap-3">
-              <ProgressBar
-                value={soeResult.score}
-                className="h-2 flex-1"
-                barClassName={`duration-700 ${
-                  soeResult.score >= passScore
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500'
-                    : soeResult.score >= 60
-                      ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
-                      : 'bg-gradient-to-r from-red-400 to-rose-500'
-                }`}
-              />
+              <div className="relative flex-1">
+                <ProgressBar
+                  value={soeResult.score}
+                  className="h-2"
+                  barClassName={`duration-700 ${
+                    soeResult.score >= passScore
+                      ? 'bg-gradient-to-r from-green-400 to-emerald-500'
+                      : soeResult.score >= 60
+                        ? 'bg-gradient-to-r from-amber-400 to-yellow-500'
+                        : 'bg-gradient-to-r from-red-400 to-rose-500'
+                  }`}
+                />
+                {/* pass line */}
+                <span
+                  aria-hidden
+                  className="absolute -top-1 h-4 w-0.5 rounded-full bg-foreground/50"
+                  style={{ left: `calc(${passScore}% - 1px)` }}
+                  title={`通过线 ${passScore} 分`}
+                />
+              </div>
               <span className="w-12 text-right text-sm font-bold tabular-nums">{soeResult.score}分</span>
             </div>
             {soeResult.words.length > 0 && (
@@ -276,6 +299,23 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
                   <span key={i} className={`${scoreColor(w.score)} mx-0.5 inline-block`}>{w.word}</span>
                 ))}
               </p>
+            )}
+            {breakdown.length > 0 && (
+              <div className="glass-chip mx-auto mt-1 flex w-fit max-w-full flex-col items-center gap-2 rounded-2xl px-4 py-3 animate-pop-in">
+                <p className="text-xs text-muted-foreground">这几个词最难读，先单独听几遍、跟着读，再读整句</p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {breakdown.map((w) => (
+                    <button
+                      key={w.word}
+                      onClick={() => tts.speak(w.word)}
+                      className="btn-hero inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm font-semibold text-white active:scale-95"
+                    >
+                      <Volume2 className="h-3.5 w-3.5" /> {w.word}
+                      <span className="text-[11px] opacity-80 tabular-nums">{w.score}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
