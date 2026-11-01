@@ -11,9 +11,23 @@ import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import type { Word, SpeakOutcome } from '@/types'
+import type { Word, WordProgress, SpeakOutcome } from '@/types'
 
 type Phase = 'show' | 'speak' | 'quiz' | 'result'
+
+// What this word is to the child right now — shown on the card so a due
+// review doesn't look like a brand-new word (R8)
+function wordKind(p: WordProgress | undefined): { label: string; cls: string } {
+  if (!p || p.status === 'new') return { label: '新词', cls: 'text-sky-600 dark:text-sky-400' }
+  if (p.status === 'mastered') return { label: '复习', cls: 'text-orange-500' }
+  return { label: '学习中', cls: 'text-amber-600 dark:text-amber-400' }
+}
+
+function lastStudiedText(ts: number | undefined): string {
+  if (!ts) return ''
+  const days = Math.floor((Date.now() - ts) / 86_400_000)
+  return days <= 0 ? ' · 今天学过' : ` · 上次 ${days} 天前`
+}
 
 const hasSpeech = recorder.isSupported()
 
@@ -143,6 +157,12 @@ export default function Study() {
       {phase === 'show' && currentWord && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
           <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
+            <div className="mb-4 flex justify-center">
+              <span className={`glass-chip rounded-full px-2.5 py-0.5 text-xs font-semibold ${wordKind(progress[currentWord.id]).cls}`}>
+                {wordKind(progress[currentWord.id]).label}
+                {lastStudiedText(progress[currentWord.id]?.lastStudied)}
+              </span>
+            </div>
             <div className="mb-2 flex items-center justify-center gap-3">
               <span className="text-[2.75rem] leading-tight font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => speakWordAndExample(currentWord)} className="h-10 w-10" iconClassName="h-5 w-5" />
