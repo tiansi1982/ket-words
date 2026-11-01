@@ -151,7 +151,7 @@ export default function Home() {
             tileClass="bg-linear-to-br from-orange-400 to-red-500"
             label="错题练习"
             badge={errorBank.length}
-            disabled={errorBank.length === 0 || !online}
+            disabled={errorBank.length === 0}
             onClick={() => navigate('/error-bank')}
           />
           <div className="mx-4 h-px bg-border/60" />

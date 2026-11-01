@@ -145,6 +145,8 @@ export function mergeProfileData(local: ProfileData, remote: ProfileData): Profi
     dailyLog,
     // local choices win, remote fills what this device never set
     settings: { ...(remote.settings ?? {}), ...(local.settings ?? {}) },
+    // a round in progress is a device-local thing
+    errorSession: local.errorSession ?? remote.errorSession ?? null,
   }
 }
 

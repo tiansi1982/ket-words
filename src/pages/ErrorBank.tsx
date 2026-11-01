@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
@@ -12,11 +12,13 @@ import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { Trash2 } from 'lucide-react'
-import type { Word, SpeakOutcome } from '@/types'
+import { Trash2, RotateCcw } from 'lucide-react'
+import type { SpeakOutcome } from '@/types'
 
-// Mirrors the daily-study flow: read the sentence aloud first, then spell.
-// A word leaves the error bank only when both parts pass in the same round.
+// Error-bank practice round (R9). Mirrors the daily-study flow: read the
+// sentence aloud first, then spell. A word leaves the bank only when both
+// parts pass in the same round. The round (ERROR_BATCH words, repeat
+// offenders first) lives in the store, so leaving mid-way resumes.
 type Phase = 'speak' | 'quiz' | 'result'
 
 const hasSpeech = recorder.isSupported()
@@ -24,19 +26,45 @@ const initialPhase: Phase = hasSpeech ? 'speak' : 'quiz'
 
 export default function ErrorBank() {
   const navigate = useNavigate()
-  const { errorBank, progress, updateProgress, recordSpeak, removeFromErrorBank } = useUserStore()
-  const { getErrorWords, checkSpelling } = useWordStore()
+  const {
+    errorBank, errorSession, progress,
+    updateProgress, recordSpeak, removeFromErrorBank,
+    startErrorRound, advanceErrorRound, pruneErrorSession, endErrorRound,
+  } = useUserStore()
+  const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
   const settings = useSettings()
 
-  // Snapshot at mount: answering correctly removes words from errorBank in the
-  // store, and a live-derived list would shift under the current index
-  const [words] = useState<Word[]>(() => getErrorWords(errorBank))
-  const [index, setIndex] = useState(0)
   const [phase, setPhase] = useState<Phase>(initialPhase)
   const [input, setInput] = useState('')
   const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
   const [speakFailed, setSpeakFailed] = useState(false)
+
+  // On entry only: start a round if there is none, otherwise drop words that
+  // left the bank meanwhile (cleared on another device) or vanished from the
+  // dictionary. Not re-run on changes — answering correctly removes the
+  // current word from the bank while its result card is still showing.
+  useEffect(() => {
+    const s = useUserStore.getState()
+    if (!s.errorSession) {
+      if (s.errorBank.length > 0) startErrorRound()
+    } else if (s.errorSession.currentIndex < s.errorSession.wordIds.length) {
+      pruneErrorSession((id) => s.errorBank.includes(id) && getWord(id) !== undefined)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const wordIds = errorSession?.wordIds ?? []
+  const index = errorSession?.currentIndex ?? 0
+  const total = wordIds.length
+  const currentWord = getWord(wordIds[index])
+  const finished = total > 0 && index >= total
+
+  const resetCard = () => {
+    setPhase(initialPhase)
+    setInput('')
+    setLastCorrect(null)
+    setSpeakFailed(false)
+  }
 
   // Scoring needs the network and there's no offline mode — block until back online
   if (!online) {
@@ -45,65 +73,83 @@ export default function ErrorBank() {
         <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
           <div className="text-5xl">📡</div>
           <p className="font-semibold">没有网络连接</p>
-          <p className="text-sm text-muted-foreground">错题练习需要联网给发音打分，请连上网络后再试。</p>
-          <Button variant="hero" className="h-11 px-7" onClick={() => navigate('/')}>
-            返回首页
+          <p className="text-sm text-muted-foreground">错题练习需要联网给发音打分，请连上网络后再试。进度已保存。</p>
+          <Button variant="hero" className="h-11 px-7" onClick={() => navigate('/error-bank')}>
+            返回错题本
           </Button>
         </div>
       </div>
     )
   }
 
-  if (words.length === 0) {
+  if (!errorSession || total === 0) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
         <div className="text-6xl animate-pop-in">🌟</div>
         <h2 className="text-2xl font-extrabold tracking-tight animate-fade-up">错题本是空的！</h2>
         <p className="text-sm text-muted-foreground animate-fade-up [animation-delay:80ms]">继续加油，保持零错误</p>
-        <Button
-          variant="hero"
-          className="mt-2 h-11 px-8 animate-fade-up [animation-delay:150ms]"
-          onClick={() => navigate('/')}
-        >
+        <Button variant="hero" className="mt-2 h-11 px-8 animate-fade-up [animation-delay:150ms]" onClick={() => navigate('/')}>
           返回首页
         </Button>
       </div>
     )
   }
 
-  if (index >= words.length) {
+  if (finished) {
+    const cleared = errorSession.cleared.length
+    const remaining = errorBank.length
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
-        <div className="text-6xl animate-pop-in">💪</div>
-        <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">错题练习完成！</h2>
-        <Button
-          variant="hero"
-          className="mt-2 h-13 px-9 text-base animate-fade-up [animation-delay:120ms]"
-          onClick={() => navigate('/')}
-        >
-          返回首页
-        </Button>
+      <div className="min-h-screen flex flex-col items-center justify-center gap-5 px-6 text-center">
+        <div className="text-6xl animate-pop-in">{cleared === total ? '🏆' : cleared > 0 ? '💪' : '🌱'}</div>
+        <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">这轮练完了！</h2>
+        <p className="text-muted-foreground tabular-nums animate-fade-up [animation-delay:80ms]">
+          {total} 个里移出了 <span className="font-bold text-foreground">{cleared}</span> 个
+          {remaining > 0 ? ` · 错题本还剩 ${remaining} 个` : ' · 错题本清空了 🎉'}
+        </p>
+        <div className="mt-2 flex gap-3 animate-fade-up [animation-delay:150ms]">
+          <Button
+            variant="glass"
+            className="h-12 px-6"
+            onClick={() => {
+              endErrorRound()
+              navigate('/error-bank')
+            }}
+          >
+            返回错题本
+          </Button>
+          {remaining > 0 && (
+            <Button
+              variant="hero"
+              className="h-12 gap-2 px-6"
+              onClick={() => {
+                endErrorRound()
+                startErrorRound()
+                resetCard()
+              }}
+            >
+              <RotateCcw className="h-4 w-4" /> 再练一轮
+            </Button>
+          )}
+        </div>
       </div>
     )
   }
 
-  const currentWord = words[index]
+  // Unknown id until the entry effect prunes it — render nothing for a frame
+  if (!currentWord) return null
 
   // Skipped or scored below the bar: the word counts as missed this round, so
   // the spelling that follows can no longer clear it out of the error bank
   const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
-    if (currentWord) {
-      recordSpeak(currentWord.id, score, outcome === 'passed')
-      if (outcome !== 'passed') {
-        setSpeakFailed(true)
-        updateProgress(currentWord.id, false)
-      }
+    recordSpeak(currentWord.id, score, outcome === 'passed')
+    if (outcome !== 'passed') {
+      setSpeakFailed(true)
+      updateProgress(currentWord.id, false)
     }
     setPhase('quiz')
   }
 
   const handleSubmit = () => {
-    if (!currentWord) return
     const correct = checkSpelling(input, currentWord)
     setLastCorrect(correct)
     setPhase('result')
@@ -112,24 +158,21 @@ export default function ErrorBank() {
     if (settings.autoSpeak) tts.speakAll([baseWord(currentWord.word), currentWord.example])
   }
 
-  const handleNext = () => {
-    setIndex((i) => i + 1)
-    setPhase(initialPhase)
-    setInput('')
-    setLastCorrect(null)
-    setSpeakFailed(false)
+  const handleNext = (cleared: boolean) => {
+    advanceErrorRound(cleared)
+    resetCard()
   }
 
   return (
     <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
-      <PageHeader counter={`错题练习 ${index + 1}/${words.length}`} />
+      <PageHeader counter={`错题练习 ${index + 1}/${total}`} />
       <ProgressBar
-        value={(index / words.length) * 100}
+        value={(index / total) * 100}
         className="mb-7 h-1.5"
         barClassName="bg-gradient-to-r from-red-400 to-rose-500 duration-300"
       />
 
-      {phase === 'speak' && currentWord && (
+      {phase === 'speak' && (
         <SentenceSpeak
           key={currentWord.id}
           word={currentWord}
@@ -141,7 +184,7 @@ export default function ErrorBank() {
         />
       )}
 
-      {phase === 'quiz' && currentWord && (
+      {phase === 'quiz' && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
           <div className="glass-card w-full rounded-[2rem] p-8 text-center">
             <p className="mb-2 text-sm text-muted-foreground">{currentWord.pos_cn}</p>
@@ -172,7 +215,7 @@ export default function ErrorBank() {
         </div>
       )}
 
-      {phase === 'result' && currentWord && (
+      {phase === 'result' && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
           <div
             className={`w-full rounded-[2rem] border p-8 text-center backdrop-blur-xl ${
@@ -201,15 +244,20 @@ export default function ErrorBank() {
           </div>
 
           <div className="mt-auto flex gap-3">
-            <Button
-              variant="glass"
-              className="h-13 flex-1 gap-1.5 text-destructive"
-              onClick={() => { removeFromErrorBank(currentWord.id); handleNext() }}
-            >
-              <Trash2 className="h-4 w-4" /> 删除错题
-            </Button>
-            <Button variant="hero" className="h-13 flex-1" onClick={handleNext}>
-              {index + 1 < words.length ? '下一个 →' : '完成 🎉'}
+            {!(lastCorrect && !speakFailed) && (
+              <Button
+                variant="glass"
+                className="h-13 flex-1 gap-1.5 text-destructive"
+                onClick={() => {
+                  removeFromErrorBank(currentWord.id)
+                  handleNext(true)
+                }}
+              >
+                <Trash2 className="h-4 w-4" /> 删除错题
+              </Button>
+            )}
+            <Button variant="hero" className="h-13 flex-1" onClick={() => handleNext(!!lastCorrect && !speakFailed)}>
+              {index + 1 < total ? '下一个 →' : '看看结果 🎉'}
             </Button>
           </div>
         </div>

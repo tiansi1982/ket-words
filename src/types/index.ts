@@ -54,6 +54,13 @@ export interface DailySession {
   results?: Record<number, SessionResult> // absent on sessions from before R7
 }
 
+// One round of error-bank practice (R9): a batch of the bank, resumable
+export interface ErrorSession {
+  wordIds: number[]
+  currentIndex: number
+  cleared: number[] // ids that left the bank during this round
+}
+
 export interface ProfileMeta {
   id: string
   name: string
@@ -75,6 +82,7 @@ export interface ProfileData {
   errorBank: number[] // wordIds in error bank
   dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
   settings?: Partial<ProfileSettings> // absent/partial on data from before R10
+  errorSession?: ErrorSession | null // in-progress error-bank round (R9)
 }
 
 // Sync account bound to one profile (P3 cloud sync, /api/sync backend)

@@ -1,13 +1,11 @@
-import type { DailySession } from '@/types'
-
-// Remove unknown ids from a session, keeping the cursor on the same word:
-// the new index is the number of surviving ids before the old index.
-// Duplicates collapse too. Returns the same object when nothing changed so
-// callers can skip a set().
-export function pruneSessionWords(
-  session: DailySession,
+// Remove unknown ids from a session (daily or error-bank round), keeping the
+// cursor on the same word: the new index is the number of surviving ids
+// before the old index. Duplicates collapse too. Returns the same object when
+// nothing changed so callers can skip a set().
+export function pruneSessionWords<T extends { wordIds: number[]; currentIndex?: number }>(
+  session: T,
   isKnown: (wordId: number) => boolean
-): DailySession {
+): T {
   const seen = new Set<number>()
   const keep = (id: number) => {
     if (!isKnown(id) || seen.has(id)) return false

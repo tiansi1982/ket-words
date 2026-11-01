@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 const Home = lazy(() => import('@/pages/Home'))
 const Study = lazy(() => import('@/pages/Study'))
 const ErrorBank = lazy(() => import('@/pages/ErrorBank'))
+const ErrorList = lazy(() => import('@/pages/ErrorList'))
 const Stats = lazy(() => import('@/pages/Stats'))
 const Practice = lazy(() => import('@/pages/Practice'))
 const Settings = lazy(() => import('@/pages/Settings'))
@@ -79,7 +80,8 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/study" element={<Study />} />
-            <Route path="/error-bank" element={<ErrorBank />} />
+            <Route path="/error-bank" element={<ErrorList />} />
+            <Route path="/error-bank/practice" element={<ErrorBank />} />
             <Route path="/stats" element={<Stats />} />
             <Route path="/practice" element={<Practice />} />
             <Route path="/settings" element={<Settings />} />

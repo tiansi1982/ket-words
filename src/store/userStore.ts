@@ -33,6 +33,11 @@ interface UserStore extends UserState {
   recordSpeak: (wordId: number, score: number | null, passed: boolean) => void
   addToErrorBank: (wordId: number) => void
   removeFromErrorBank: (wordId: number) => void
+  // Error-bank rounds (R9): ERROR_BATCH words per round, repeat offenders first
+  startErrorRound: () => void
+  advanceErrorRound: (cleared: boolean) => void
+  pruneErrorSession: (isKnown: (wordId: number) => boolean) => void
+  endErrorRound: () => void
   getWordStatus: (wordId: number) => StudyStatus
   getMasteredIds: () => Set<number>
   getTodayDate: () => string
@@ -40,6 +45,18 @@ interface UserStore extends UserState {
   getDueReviewIds: () => number[]
   // Consecutive study days; today not counted against the streak until it ends
   getStreak: () => number
+}
+
+// Error-bank practice runs in rounds of this many words
+export const ERROR_BATCH = 10
+
+// Bank order for practice and the list page: words failed most in a row
+// first, then by when they entered the bank
+export function orderErrorBank(errorBank: number[], progress: Record<number, WordProgress>): number[] {
+  return errorBank
+    .map((id, i) => ({ id, i, wrong: progress[id]?.consecutiveWrong ?? 0 }))
+    .sort((a, b) => b.wrong - a.wrong || a.i - b.i)
+    .map((x) => x.id)
 }
 
 // Ebbinghaus-style review intervals in days, indexed by srsLevel.
@@ -84,6 +101,7 @@ const emptyProfileData = (): ProfileData => ({
   errorBank: [],
   dailyLog: {},
   settings: {},
+  errorSession: null,
 })
 
 // The active profile's data as stored top-level in state
@@ -95,6 +113,7 @@ function snapshot(s: UserState): ProfileData {
     errorBank: s.errorBank,
     dailyLog: s.dailyLog ?? {},
     settings: s.settings ?? {},
+    errorSession: s.errorSession ?? null,
   }
 }
 
@@ -120,6 +139,7 @@ export const useUserStore = create<UserStore>()(
       errorBank: [],
       dailyLog: {},
       settings: {},
+      errorSession: null,
 
       getTodayDate: () => todayStr(),
 
@@ -361,6 +381,39 @@ export const useUserStore = create<UserStore>()(
         set((state) => ({
           errorBank: state.errorBank.filter((id) => id !== wordId),
         })),
+
+      startErrorRound: () =>
+        set((state) => ({
+          errorSession: {
+            wordIds: orderErrorBank(state.errorBank, state.progress).slice(0, ERROR_BATCH),
+            currentIndex: 0,
+            cleared: [],
+          },
+        })),
+
+      advanceErrorRound: (cleared) =>
+        set((state) => {
+          const s = state.errorSession
+          if (!s) return state
+          const id = s.wordIds[s.currentIndex]
+          return {
+            errorSession: {
+              ...s,
+              currentIndex: s.currentIndex + 1,
+              cleared: cleared && id !== undefined && !s.cleared.includes(id) ? [...s.cleared, id] : s.cleared,
+            },
+          }
+        }),
+
+      pruneErrorSession: (isKnown) =>
+        set((state) => {
+          if (!state.errorSession) return state
+          const pruned = pruneSessionWords(state.errorSession, isKnown)
+          if (pruned === state.errorSession) return state
+          return { errorSession: pruned.wordIds.length ? pruned : null }
+        }),
+
+      endErrorRound: () => set({ errorSession: null }),
 
       getWordStatus: (wordId) => {
         const p = get().progress[wordId]
