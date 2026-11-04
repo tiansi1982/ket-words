@@ -44,6 +44,15 @@ export interface SessionResult {
   speak?: SpeakOutcome
   speakScore?: number | null // null = skipped / unscored
   spelled?: boolean
+  quiz?: 'spell' | 'dictation' // which prompt the spelling used (F4)
+}
+
+// Placement test outcome (F3): sampled accuracy projected onto the dictionary
+export interface PlacementRecord {
+  date: string // YYYY-MM-DD
+  correct: number
+  total: number
+  estimated: number // estimated words already known
 }
 
 export interface DailySession {
@@ -83,6 +92,7 @@ export interface ProfileData {
   dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
   settings?: Partial<ProfileSettings> // absent/partial on data from before R10
   errorSession?: ErrorSession | null // in-progress error-bank round (R9)
+  placement?: PlacementRecord | null // last placement test (F3)
 }
 
 // Sync account bound to one profile (P3 cloud sync, /api/sync backend)

@@ -69,7 +69,7 @@ test('two-word session: right, wrong, then the summary', async () => {
   expect(screen.getByText(/今天有 1 个词进了错题本/)).toBeTruthy()
   const st = useUserStore.getState()
   expect(st.currentSession!.completed).toBe(true)
-  expect(st.currentSession!.results).toEqual({ 1: { spelled: true }, 2: { spelled: false } })
+  expect(st.currentSession!.results).toEqual({ 1: { spelled: true, quiz: 'spell' }, 2: { spelled: false, quiz: 'spell' } })
   expect(st.dailyLog[s.getTodayDate()]).toBe(2)
 })
 
@@ -85,4 +85,46 @@ test('a stale session with an unknown id is pruned instead of stranding the page
   expect(screen.getByText(/复习 · 上次 3 天前/)).toBeTruthy()
   expect(useUserStore.getState().currentSession!.wordIds).toEqual([3])
   expect(screen.getByText('1 / 1')).toBeTruthy()
+})
+
+test('a due review is tested first: dictation for a word past its first interval, then the card (F4)', async () => {
+  const s = useUserStore.getState()
+  useUserStore.setState({
+    progress: { 3: { wordId: 3, status: 'mastered', correctCount: 4, wrongCount: 0, lastStudied: Date.now() - 3 * 86400000, srsLevel: 2, dueDate: s.getTodayDate() } },
+    errorBank: [],
+    currentSession: { date: s.getTodayDate(), wordIds: [3], currentIndex: 0, completed: false },
+  })
+  renderStudy()
+  // no card first — the dictation prompt, with the word hidden
+  await screen.findByText('🎧 听写')
+  expect(screen.queryByText('开始拼写 →')).toBeNull()
+  expect(screen.queryByText('在上面')).toBeNull()
+  fireEvent.click(screen.getByText('中文提示'))
+  expect(screen.getByText('在上面')).toBeTruthy()
+  spell('above')
+  await screen.findByText('✅')
+  expect(screen.getAllByText('above').length).toBeGreaterThan(0)
+  const st = useUserStore.getState()
+  expect(st.currentSession!.results![3]).toEqual({ spelled: true, quiz: 'dictation' })
+  expect(st.progress[3].srsLevel).toBe(3)
+  fireEvent.click(screen.getByText('完成学习 🎉'))
+  await screen.findByText('今日学习完成！')
+  expect(screen.getByLabelText('听写')).toBeTruthy()
+})
+
+test('a review mastered yesterday still gets the Chinese prompt, before any card (F4)', async () => {
+  const s = useUserStore.getState()
+  useUserStore.setState({
+    progress: { 4: { wordId: 4, status: 'mastered', correctCount: 3, wrongCount: 0, lastStudied: Date.now() - 86400000, srsLevel: 0, dueDate: s.getTodayDate() } },
+    errorBank: [],
+    currentSession: { date: s.getTodayDate(), wordIds: [4], currentIndex: 0, completed: false },
+  })
+  renderStudy()
+  await screen.findByText('事故；意外')
+  expect(screen.getByPlaceholderText('输入英文单词...')).toBeTruthy()
+  expect(screen.queryByText('🎧 听写')).toBeNull()
+  expect(screen.getByText(/复习 · 上次 1 天前/)).toBeTruthy()
+  spell('accident')
+  await screen.findByText('✅')
+  expect(useUserStore.getState().currentSession!.results![4]).toEqual({ spelled: true, quiz: 'spell' })
 })

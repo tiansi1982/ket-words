@@ -7,7 +7,7 @@ import { pct } from '@/lib/utils'
 import ProfileSwitcher from '@/components/ProfileSwitcher'
 import ProgressBar from '@/components/ProgressBar'
 import { Button } from '@/components/ui/button'
-import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check, SlidersHorizontal, BookA } from 'lucide-react'
+import { BookOpen, Zap, BarChart2, Brain, ChevronRight, Flame, GraduationCap, Check, SlidersHorizontal, BookA, ClipboardList } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 function EntryRow({
@@ -45,7 +45,7 @@ function EntryRow({
 
 export default function Home() {
   const navigate = useNavigate()
-  const { progress, dailyGoal, errorBank, currentSession, startDailySession, getTodayDate, getMasteredIds, getDueReviewIds, getStreak } = useUserStore()
+  const { progress, dailyGoal, errorBank, currentSession, placement, startDailySession, getTodayDate, getMasteredIds, getDueReviewIds, getStreak } = useUserStore()
   const { words, pickDailyWords } = useWordStore()
   const online = useOnline()
 
@@ -70,7 +70,7 @@ export default function Home() {
     }
     // Due reviews claim daily slots first (most overdue first), new words fill the rest
     const reviewIds = getDueReviewIds().slice(0, dailyGoal)
-    const newWords = pickDailyWords(masteredIds, dailyGoal - reviewIds.length, learningIds)
+    const newWords = pickDailyWords(masteredIds, dailyGoal - reviewIds.length, learningIds, placement?.estimated ?? 0)
     const wordIds = shuffled([...reviewIds, ...newWords.map((w) => w.id)])
     if (wordIds.length === 0) {
       navigate('/stats')
@@ -82,6 +82,8 @@ export default function Home() {
 
   const todayDone = currentSession?.date === getTodayDate() && currentSession.completed
   const masteredPct = pct(totalMastered, totalWords)
+  // Brand-new profile: offer the placement test before the first session (F3)
+  const suggestPlacement = !placement && Object.keys(progress).length === 0
 
   return (
     <div className="min-h-screen flex flex-col items-center px-5 pt-12 pb-10">
@@ -124,6 +126,22 @@ export default function Home() {
           </div>
         </section>
 
+        {suggestPlacement && (
+          <button
+            onClick={() => navigate('/placement')}
+            className="glass-card mt-4 flex w-full items-center gap-3.5 rounded-[1.4rem] p-4 text-left animate-fade-up [animation-delay:130ms] transition-colors hover:bg-muted/60"
+          >
+            <span className="icon-tile h-10 w-10 shrink-0 rounded-[0.85rem] bg-linear-to-br from-amber-400 to-orange-500">
+              <ClipboardList className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1 text-sm">
+              <span className="font-semibold">第一次用？先做 5 分钟摸底测试</span>
+              <span className="block text-xs text-muted-foreground">已经认识的词直接跳过，从适合的难度开始</span>
+            </span>
+            <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+          </button>
+        )}
+
         {/* Primary CTA */}
         <div className="mt-6 w-full animate-fade-up [animation-delay:170ms]">
           <Button
@@ -158,7 +176,7 @@ export default function Home() {
           <EntryRow
             icon={<Brain className="h-5 w-5" />}
             tileClass="bg-linear-to-br from-sky-400 to-blue-600"
-            label="选择题练习"
+            label="混合练习"
             onClick={() => navigate('/practice')}
           />
           <div className="mx-4 h-px bg-border/60" />

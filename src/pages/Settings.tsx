@@ -5,7 +5,8 @@ import { DEFAULT_SETTINGS, PASS_SCORE_MAX, PASS_SCORE_MIN, PASS_SCORE_STEP, PIN_
 import { usePinGate } from '@/lib/use-pin-gate'
 import { BackButton } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
-import { Target, Volume2, Mic, Lock, LockOpen } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Target, Volume2, Mic, Lock, LockOpen, ClipboardList } from 'lucide-react'
 
 const GOALS = [10, 20, 30, 50]
 
@@ -44,7 +45,8 @@ const pinInputCls =
 // Settings (R10): learning preferences for the active profile, the parent-only
 // pass mark, and the device-level parent PIN.
 export default function Settings() {
-  const { dailyGoal, setDailyGoal, parentPin, setParentPin, updateSettings } = useUserStore()
+  const navigate = useNavigate()
+  const { dailyGoal, setDailyGoal, parentPin, setParentPin, updateSettings, placement } = useUserStore()
   const settings = useSettings()
   const { guard, dialog } = usePinGate()
 
@@ -189,6 +191,17 @@ export default function Settings() {
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
           PIN 只保存在这台设备上，用来防止孩子误触，不是安全措施。忘记 PIN 时只能清除浏览器数据重来，所以建议先绑定云同步。
         </p>
+      </Section>
+
+      <Section icon={<ClipboardList className="h-4 w-4" />} tile="bg-linear-to-br from-amber-400 to-orange-500" title="摸底测试">
+        <p className="text-sm text-muted-foreground">
+          {placement
+            ? `上次 ${placement.date}：${placement.total} 题答对 ${placement.correct} 题，预计已认识约 ${placement.estimated} 个词。`
+            : '还没做过。40 道识别题，答对的词直接标为已会，并据此调整每天新词的难度。'}
+        </p>
+        <Button variant="glass" className="mt-3 h-10 w-full" onClick={() => navigate('/placement')}>
+          {placement ? '再测一次' : '去做摸底测试'}
+        </Button>
       </Section>
 
       {dialog}

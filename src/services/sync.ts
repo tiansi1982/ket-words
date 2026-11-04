@@ -7,7 +7,7 @@
 // Cloud model: one profile row per account holding a full ProfileData
 // snapshot. Sync = pull → merge → apply → push. The merge never discards
 // learning data (see mergeProfileData).
-import type { ProfileData, WordProgress, DailySession, SyncAccount } from '@/types'
+import type { ProfileData, WordProgress, DailySession, SyncAccount, PlacementRecord } from '@/types'
 import { useUserStore, toDateStr } from '@/store/userStore'
 import { remapProfileData } from '@/lib/word-aliases'
 
@@ -117,6 +117,11 @@ function pickSession(a: DailySession | null, b: DailySession | null): DailySessi
   return at ?? bt ?? a ?? b
 }
 
+function newerPlacement(a: PlacementRecord | null, b: PlacementRecord | null): PlacementRecord | null {
+  if (!a || !b) return a ?? b
+  return b.date > a.date ? b : a
+}
+
 // Never lose learning data: per-word newest record wins, daily counts take the
 // max per day, error banks union (a word cleared on one device may briefly
 // reappear — it clears again after practice, which beats losing errors)
@@ -147,6 +152,7 @@ export function mergeProfileData(local: ProfileData, remote: ProfileData): Profi
     settings: { ...(remote.settings ?? {}), ...(local.settings ?? {}) },
     // a round in progress is a device-local thing
     errorSession: local.errorSession ?? remote.errorSession ?? null,
+    placement: newerPlacement(local.placement ?? null, remote.placement ?? null),
   }
 }
 

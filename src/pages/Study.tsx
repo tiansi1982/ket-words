@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
@@ -6,16 +6,17 @@ import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
 import { useSettings } from '@/lib/use-settings'
 import { displayWord, spellingHint } from '@/lib/word-utils'
+import { wordStatus } from '@/lib/word-status'
+import { phasePlan, quizTypeFor } from '@/lib/exercise'
 import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
 import SessionSummary from '@/components/SessionSummary'
+import DictationPrompt from '@/components/DictationPrompt'
 import { speakWordAndExample } from '@/lib/speak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
 import type { Word, WordProgress, SpeakOutcome } from '@/types'
-
-type Phase = 'show' | 'speak' | 'quiz' | 'result'
 
 // What this word is to the child right now — shown on the card so a due
 // review doesn't look like a brand-new word (R8)
@@ -35,7 +36,10 @@ const hasSpeech = recorder.isSupported()
 
 export default function Study() {
   const navigate = useNavigate()
-  const { currentSession, progress, updateProgress, recordSpeak, recordSessionResult, addToErrorBank, advanceSession, completeDailySession, pruneSession } = useUserStore()
+  const {
+    currentSession, progress, getTodayDate,
+    updateProgress, recordSpeak, recordSessionResult, addToErrorBank, advanceSession, completeDailySession, pruneSession,
+  } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
   const settings = useSettings()
@@ -50,14 +54,23 @@ export default function Study() {
 
   // Session cursor lives in the persisted store so leaving mid-session resumes here
   const index = currentSession?.currentIndex ?? 0
-  const [phase, setPhase] = useState<Phase>('show')
-  const [input, setInput] = useState('')
-  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
-
   const wordIds = currentSession?.wordIds ?? []
   const currentWord: Word | undefined = getWord(wordIds[index])
   const total = wordIds.length
   const finished = total > 0 && index >= total
+
+  // The phase plan and quiz type are fixed when the word comes up: answering
+  // changes its progress, which must not reshuffle the phases mid-word (F4)
+  const wordId = currentWord?.id
+  const { plan, quizType, review } = useMemo(() => {
+    const p = wordId === undefined ? undefined : useUserStore.getState().progress[wordId]
+    const review = wordStatus(p, getTodayDate()) === 'due'
+    return { plan: phasePlan(review, hasSpeech), quizType: quizTypeFor(p, review), review }
+  }, [wordId, getTodayDate])
+  const [phaseIdx, setPhaseIdx] = useState(0)
+  const phase = plan[Math.min(phaseIdx, plan.length - 1)]
+  const [input, setInput] = useState('')
+  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
 
   useEffect(() => {
     if (finished) completeDailySession()
@@ -69,10 +82,18 @@ export default function Study() {
     }
   }, [currentWord, phase, settings.autoSpeak])
 
-  const goToQuiz = () => {
-    setPhase('quiz')
+  const nextWord = () => {
+    advanceSession()
+    setPhaseIdx(0)
     setInput('')
+    setLastCorrect(null)
   }
+  const nextPhase = () => {
+    if (phaseIdx + 1 < plan.length) setPhaseIdx(phaseIdx + 1)
+    else nextWord()
+  }
+  const isLastWord = index + 1 >= total
+  const lastPhase = phaseIdx + 1 >= plan.length
 
   // Skipped or scored below the bar: the word counts as missed so it lands in
   // the error bank and stays in the to-learn pool
@@ -85,25 +106,19 @@ export default function Study() {
         addToErrorBank(currentWord.id)
       }
     }
-    goToQuiz()
+    setInput('')
+    nextPhase()
   }
 
   const handleSubmit = () => {
     if (!currentWord) return
     const correct = checkSpelling(input, currentWord)
     setLastCorrect(correct)
-    setPhase('result')
     updateProgress(currentWord.id, correct)
-    recordSessionResult(currentWord.id, { spelled: correct })
+    recordSessionResult(currentWord.id, { spelled: correct, quiz: quizType })
     if (!correct) addToErrorBank(currentWord.id)
     if (settings.autoSpeak) speakWordAndExample(currentWord)
-  }
-
-  const handleNext = () => {
-    advanceSession()
-    setPhase('show')
-    setInput('')
-    setLastCorrect(null)
+    nextPhase()
   }
 
   // Scoring needs the network and there's no offline mode — block until back online.
@@ -138,6 +153,22 @@ export default function Study() {
 
   if (finished) return <SessionSummary session={currentSession} />
 
+  const continueLabel = lastPhase ? (isLastWord ? '完成学习 🎉' : '下一个 →') : plan[phaseIdx + 1] === 'speak' ? '练习发音 →' : '继续 →'
+  const kind = currentWord ? wordKind(progress[currentWord.id]) : null
+  const kindChip = currentWord && kind && (
+    <div className="mb-4 flex justify-center">
+      <span className={`glass-chip rounded-full px-2.5 py-0.5 text-xs font-semibold ${kind.cls}`}>
+        {kind.label}
+        {lastStudiedText(progress[currentWord.id]?.lastStudied)}
+      </span>
+    </div>
+  )
+  const spellHint = currentWord && (progress[currentWord.id]?.consecutiveWrong ?? 0) >= 2 && (
+    <p className="glass-chip mx-auto mt-5 w-fit rounded-full px-4 py-1.5 text-sm font-medium font-mono tracking-widest text-orange-500">
+      💡 {spellingHint(currentWord.word)}
+    </p>
+  )
+
   return (
     <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
       <PageHeader counter={`${index + 1} / ${total}`} />
@@ -147,12 +178,7 @@ export default function Study() {
       {phase === 'show' && currentWord && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
           <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
-            <div className="mb-4 flex justify-center">
-              <span className={`glass-chip rounded-full px-2.5 py-0.5 text-xs font-semibold ${wordKind(progress[currentWord.id]).cls}`}>
-                {wordKind(progress[currentWord.id]).label}
-                {lastStudiedText(progress[currentWord.id]?.lastStudied)}
-              </span>
-            </div>
+            {kindChip}
             <div className="mb-2 flex items-center justify-center gap-3">
               <span className="text-[2.75rem] leading-tight font-extrabold tracking-tight">{displayWord(currentWord.word)}</span>
               <SpeakButton onClick={() => speakWordAndExample(currentWord)} className="h-10 w-10" iconClassName="h-5 w-5" />
@@ -170,8 +196,8 @@ export default function Study() {
             </div>
           </div>
 
-          <Button variant="hero" className="h-14 w-full text-base" onClick={() => (hasSpeech ? setPhase('speak') : goToQuiz())}>
-            {hasSpeech ? '练习发音 →' : '开始拼写 →'}
+          <Button variant="hero" className="h-14 w-full text-base" onClick={nextPhase}>
+            {plan[phaseIdx + 1] === 'speak' ? '练习发音 →' : '开始拼写 →'}
           </Button>
         </div>
       )}
@@ -182,7 +208,7 @@ export default function Study() {
           key={currentWord.id}
           word={currentWord}
           passScore={settings.passScore}
-          continueLabel="继续拼写 →"
+          continueLabel={lastPhase ? (isLastWord ? '完成学习 🎉' : '下一个 →') : '继续拼写 →'}
           skipLabel="跳过发音"
           onContinue={handleSpeakDone}
           onAbort={() => navigate('/')}
@@ -192,19 +218,29 @@ export default function Study() {
       {/* ── PHASE: quiz ── */}
       {phase === 'quiz' && currentWord && (
         <div className="flex flex-col gap-5 flex-1 animate-fade-up">
-          <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
-            <p className="mb-2 text-sm text-muted-foreground">{currentWord.pos_cn}</p>
-            <p className="text-3xl font-extrabold tracking-tight">{currentWord.definition}</p>
-            <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground italic">{currentWord.example_cn}</p>
-            {(progress[currentWord.id]?.consecutiveWrong ?? 0) >= 2 && (
-              <p className="glass-chip mx-auto mt-5 rounded-full px-4 py-1.5 text-sm font-medium font-mono tracking-widest text-orange-500">
-                💡 {spellingHint(currentWord.word)}
-              </p>
-            )}
-          </div>
+          {quizType === 'dictation' ? (
+            <DictationPrompt key={currentWord.id} word={currentWord}>
+              {review && (
+                <span className="text-xs text-orange-500">
+                  复习{lastStudiedText(progress[currentWord.id]?.lastStudied)}
+                </span>
+              )}
+              {spellHint}
+            </DictationPrompt>
+          ) : (
+            <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
+              {review && kindChip}
+              <p className="mb-2 text-sm text-muted-foreground">{currentWord.pos_cn}</p>
+              <p className="text-3xl font-extrabold tracking-tight">{currentWord.definition}</p>
+              <p className="mt-5 text-[15px] leading-relaxed text-muted-foreground italic">{currentWord.example_cn}</p>
+              {spellHint}
+            </div>
+          )}
 
           <div className="w-full">
-            <label className="mb-2.5 block text-center text-sm font-medium text-muted-foreground">请拼写这个单词</label>
+            <label className="mb-2.5 block text-center text-sm font-medium text-muted-foreground">
+              {quizType === 'dictation' ? '把听到的单词拼出来' : '请拼写这个单词'}
+            </label>
             <input
               autoFocus
               value={input}
@@ -251,8 +287,8 @@ export default function Study() {
             </div>
           </div>
 
-          <Button variant="hero" className="h-14 w-full text-base" onClick={handleNext}>
-            {index + 1 < total ? '下一个 →' : '完成学习 🎉'}
+          <Button variant="hero" className="h-14 w-full text-base" onClick={nextPhase}>
+            {continueLabel}
           </Button>
         </div>
       )}

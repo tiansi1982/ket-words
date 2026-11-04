@@ -12,8 +12,10 @@ interface WordStore {
   words: Word[]
   getWord: (id: number) => Word | undefined
   // Pick today's study words: words already being learned first, then new
-  // words by difficulty weights (due SRS reviews claim slots before this)
-  pickDailyWords: (masteredIds: Set<number>, goal: number, learningIds: Set<number>) => Word[]
+  // words by difficulty weights (due SRS reviews claim slots before this).
+  // estimatedKnown (placement test, F3) can stand in for the mastered count
+  // when choosing the weights, so a child with a head start gets harder words
+  pickDailyWords: (masteredIds: Set<number>, goal: number, learningIds: Set<number>, estimatedKnown?: number) => Word[]
   // Pick words from error bank
   getErrorWords: (errorIds: number[]) => Word[]
   // Spelling check: accepts the target word's spelling variants,
@@ -38,7 +40,7 @@ export const useWordStore = create<WordStore>()(() => ({
     )
   },
 
-  pickDailyWords: (masteredIds, goal, learningIds) => {
+  pickDailyWords: (masteredIds, goal, learningIds, estimatedKnown = 0) => {
     // Words already in progress come first so they don't dangle half-learned
     const learningPicked = shuffle(allWords.filter((w) => learningIds.has(w.id))).slice(0, goal)
     goal -= learningPicked.length
@@ -49,8 +51,8 @@ export const useWordStore = create<WordStore>()(() => ({
     const medium = shuffle(pool.filter((w) => difficultyOf(w.word) === 'medium'))
     const hard   = shuffle(pool.filter((w) => difficultyOf(w.word) === 'hard'))
 
-    // Progress 0→1 based on how many of all words are mastered
-    const p = Math.min(1, masteredIds.size / allWords.length)
+    // Progress 0→1 based on how many of all words are mastered (or estimated)
+    const p = Math.min(1, Math.max(masteredIds.size, estimatedKnown) / allWords.length)
 
     // Weights shift from easy-heavy → hard-heavy as progress grows
     const wEasy   = Math.max(0.10, 0.65 - 0.55 * p)

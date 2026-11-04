@@ -4,48 +4,83 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { baseWord, displayWord, shuffled } from '@/lib/word-utils'
-import PageHeader from '@/components/PageHeader'
+import { buildWordOptions, buildDefinitionOptions, type DefinitionOption } from '@/lib/exercise'
+import DictationPrompt from '@/components/DictationPrompt'
+import PageHeader, { BackButton } from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { RotateCcw } from 'lucide-react'
+import { RotateCcw, Shuffle, Languages, Headphones, ListChecks } from 'lucide-react'
 import type { Word } from '@/types'
 
 const BATCH = 10
 
-function buildOptions(correct: Word, pool: Word[]): Word[] {
-  // Exclude synonyms (same definition would make two options correct) and
-  // entries with the same spelling (would render two identical buttons)
-  const correctBase = baseWord(correct.word).toLowerCase()
-  const ok = (w: Word) =>
-    w.id !== correct.id &&
-    w.definition !== correct.definition &&
-    baseWord(w.word).toLowerCase() !== correctBase
-  // Same part of speech first — makes distractors grammatically plausible;
-  // fall back to other pos if the bucket runs dry (e.g. exclam has only 19)
-  const samePos = shuffled(pool.filter((w) => ok(w) && w.pos === correct.pos))
-  const otherPos = shuffled(pool.filter((w) => ok(w) && w.pos !== correct.pos))
-  const distractors: Word[] = []
-  const usedText = new Set([correctBase])
-  for (const w of [...samePos, ...otherPos]) {
-    const text = baseWord(w.word).toLowerCase()
-    if (usedText.has(text)) continue
-    usedText.add(text)
-    distractors.push(w)
-    if (distractors.length === 3) break
+// Question kinds (F4): the classic Chinese → pick the English word, the
+// reverse, and dictation (hear → spell). "mixed" draws one per question.
+type Kind = 'cn2en' | 'en2cn' | 'dictation'
+type Mode = Kind | 'mixed'
+const KINDS: Kind[] = ['cn2en', 'en2cn', 'dictation']
+const MODES: { key: Mode; label: string; desc: string; icon: typeof Shuffle }[] = [
+  { key: 'mixed', label: '混合', desc: '三种题型随机出', icon: Shuffle },
+  { key: 'cn2en', label: '中 → 英', desc: '看中文，选单词', icon: ListChecks },
+  { key: 'en2cn', label: '英 → 中', desc: '看单词，选意思', icon: Languages },
+  { key: 'dictation', label: '听写', desc: '听发音，拼单词', icon: Headphones },
+]
+const MODE_KEY = 'ket-words-practice-mode'
+
+function loadMode(): Mode {
+  try {
+    const v = localStorage.getItem(MODE_KEY)
+    return MODES.some((m) => m.key === v) ? (v as Mode) : 'mixed'
+  } catch {
+    return 'mixed'
   }
-  return shuffled([...distractors, correct])
+}
+function saveMode(mode: Mode) {
+  try {
+    localStorage.setItem(MODE_KEY, mode)
+  } catch {
+    /* ignore */
+  }
+}
+
+interface Question {
+  word: Word
+  kind: Kind
+  wordOptions?: Word[]
+  defOptions?: DefinitionOption[]
+}
+
+function buildQuestions(words: Word[], pool: Word[], mode: Mode): Question[] {
+  return words.map((word) => {
+    const kind: Kind = mode === 'mixed' ? KINDS[Math.floor(Math.random() * KINDS.length)] : mode
+    if (kind === 'cn2en') return { word, kind, wordOptions: buildWordOptions(word, pool) }
+    if (kind === 'en2cn') return { word, kind, defOptions: buildDefinitionOptions(word, pool) }
+    return { word, kind }
+  })
+}
+
+const optionCls = (state: 'idle' | 'correct' | 'wrong' | 'dim') => {
+  const base = 'rounded-2xl border p-4 text-center text-base font-semibold transition-all duration-200 '
+  // No standalone backdrop-blur here: glass-card already supplies the blur,
+  // and four simultaneously blurred tiles are expensive on low-end tablets
+  if (state === 'idle') return base + 'glass-card cursor-pointer hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg active:scale-[0.97]'
+  if (state === 'correct') return base + 'border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-300 animate-pop-in'
+  if (state === 'wrong') return base + 'border-red-500/40 bg-red-500/15 text-red-600 dark:text-red-300 animate-pop-in'
+  return base + 'border-border/60 bg-muted/40 text-muted-foreground opacity-60'
 }
 
 export default function Practice() {
   const navigate = useNavigate()
   const { progress, updateProgress, addToErrorBank } = useUserStore()
-  const { words } = useWordStore()
+  const { words, checkSpelling } = useWordStore()
 
-  const [round, setRound] = useState(0)
+  const [mode, setMode] = useState<Mode>(loadMode)
+  const [round, setRound] = useState(0) // 0 = start screen; bumps re-draw questions
 
-  // Pick BATCH unmastered words (or any words if not enough); reshuffled each round
-  const practiceWords = useMemo(() => {
+  // Pick BATCH unmastered words (or any words if not enough); redrawn each round
+  const questions = useMemo(() => {
+    if (round === 0) return []
     const masteredIds = new Set(
       Object.values(progress)
         .filter((p) => p.status === 'mastered')
@@ -53,52 +88,86 @@ export default function Practice() {
     )
     const pool = words.filter((w) => !masteredIds.has(w.id))
     const source = pool.length >= BATCH ? pool : words
-    return shuffled(source).slice(0, BATCH)
+    return buildQuestions(shuffled(source).slice(0, BATCH), words, mode)
   }, [round]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const [index, setIndex] = useState(0)
-  const [selected, setSelected] = useState<number | null>(null)
+  const [answered, setAnswered] = useState<{ correct: boolean; pick?: number } | null>(null)
+  const [input, setInput] = useState('')
   const [score, setScore] = useState(0)
   const [done, setDone] = useState(false)
 
-  const restart = () => {
+  const start = (m: Mode) => {
+    setMode(m)
+    saveMode(m)
     setRound((r) => r + 1)
     setIndex(0)
-    setSelected(null)
+    setAnswered(null)
+    setInput('')
     setScore(0)
     setDone(false)
   }
 
-  const current = practiceWords[index]
-  const options = useMemo(
-    () => (current ? buildOptions(current, words) : []),
-    [index, practiceWords] // eslint-disable-line react-hooks/exhaustive-deps
-  )
+  const current = questions[index]
 
-  const handleSelect = (word: Word) => {
-    if (selected !== null) return
-    setSelected(word.id)
-    const correct = word.id === current.id
+  const settle = (correct: boolean, pick?: number) => {
+    if (answered || !current) return
+    setAnswered({ correct, pick })
     if (correct) {
       setScore((s) => s + 1)
-      updateProgress(current.id, true)
+      updateProgress(current.word.id, true)
     } else {
-      updateProgress(current.id, false)
-      addToErrorBank(current.id)
+      updateProgress(current.word.id, false)
+      addToErrorBank(current.word.id)
     }
-    tts.speak(baseWord(current.word))
+    if (current.kind !== 'dictation') tts.speak(baseWord(current.word.word))
   }
 
   const handleNext = () => {
-    if (index + 1 >= practiceWords.length) {
+    if (index + 1 >= questions.length) {
       setDone(true)
     } else {
       setIndex((i) => i + 1)
-      setSelected(null)
+      setAnswered(null)
+      setInput('')
     }
   }
 
-  if (practiceWords.length === 0) {
+  // ── start screen ──
+  if (round === 0) {
+    return (
+      <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
+        <div className="mb-7 flex items-center gap-3">
+          <BackButton />
+          <h1 className="text-2xl font-extrabold tracking-tight">混合练习</h1>
+        </div>
+        <p className="mb-4 text-sm text-muted-foreground">每组 {BATCH} 题，从还没掌握的词里抽。答错会进错题本。</p>
+        <div className="grid grid-cols-2 gap-3">
+          {MODES.map((m) => (
+            <button
+              key={m.key}
+              onClick={() => setMode(m.key)}
+              aria-pressed={mode === m.key}
+              className={`glass-card flex flex-col items-start gap-2 rounded-[1.5rem] p-4 text-left transition-all ${
+                mode === m.key ? 'ring-3 ring-primary/50' : 'hover:-translate-y-0.5'
+              }`}
+            >
+              <span className={`icon-tile h-9 w-9 rounded-xl ${mode === m.key ? 'bg-brand-gradient' : 'bg-linear-to-br from-slate-400 to-slate-600'}`}>
+                <m.icon className="h-4 w-4" />
+              </span>
+              <span className="font-bold">{m.label}</span>
+              <span className="text-xs text-muted-foreground">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+        <Button variant="hero" className="mt-6 h-14 w-full text-base" onClick={() => start(mode)}>
+          开始 {BATCH} 题
+        </Button>
+      </div>
+    )
+  }
+
+  if (questions.length === 0) {
     return (
       <div className="min-h-screen flex items-center justify-center px-4">
         <div className="glass-card flex flex-col items-center gap-4 rounded-[2rem] p-10 text-center animate-pop-in">
@@ -112,13 +181,13 @@ export default function Practice() {
   }
 
   if (done) {
-    const pct = Math.round((score / practiceWords.length) * 100)
+    const pct = Math.round((score / questions.length) * 100)
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-6 px-4">
         <div className="text-7xl animate-pop-in">{pct >= 80 ? '🏆' : pct >= 60 ? '👍' : '💪'}</div>
         <h2 className="text-3xl font-extrabold tracking-tight animate-fade-up">练习结束！</h2>
         <p className="text-muted-foreground text-lg animate-fade-up [animation-delay:80ms]">
-          {practiceWords.length} 题中答对 <span className="font-bold text-foreground tabular-nums">{score}</span> 题
+          {questions.length} 题中答对 <span className="font-bold text-foreground tabular-nums">{score}</span> 题
         </p>
         <ProgressBar
           value={pct}
@@ -132,11 +201,14 @@ export default function Practice() {
           }`}
         />
         <p className="text-4xl font-extrabold tracking-tight tabular-nums text-gradient">{pct}%</p>
-        <div className="mt-2 flex gap-3 animate-fade-up [animation-delay:200ms]">
-          <Button variant="glass" className="h-12 px-7" onClick={() => navigate('/')}>
+        <div className="mt-2 flex flex-wrap justify-center gap-3 animate-fade-up [animation-delay:200ms]">
+          <Button variant="glass" className="h-12 px-6" onClick={() => navigate('/')}>
             返回首页
           </Button>
-          <Button variant="hero" className="h-12 gap-2 px-7" onClick={restart}>
+          <Button variant="glass" className="h-12 px-6" onClick={() => setRound(0)}>
+            换题型
+          </Button>
+          <Button variant="hero" className="h-12 gap-2 px-6" onClick={() => start(mode)}>
             <RotateCcw className="h-4 w-4" /> 再练一组
           </Button>
         </div>
@@ -144,62 +216,116 @@ export default function Practice() {
     )
   }
 
-  const answered = selected !== null
-  const correct = answered && selected === current.id
+  const { word, kind } = current
+  const correct = answered?.correct ?? false
 
   return (
     <div className="min-h-screen flex flex-col px-5 py-6 max-w-lg mx-auto w-full">
-      <PageHeader counter={`${index + 1} / ${practiceWords.length}`} />
-      <ProgressBar value={(index / practiceWords.length) * 100} className="mb-7 h-1.5" />
+      <PageHeader counter={`${index + 1} / ${questions.length}`} />
+      <ProgressBar value={(index / questions.length) * 100} className="mb-7 h-1.5" />
 
-      {/* Question card */}
-      <div className="glass-card mb-5 rounded-[2rem] p-7 animate-fade-up">
-        <p className="mb-1 text-xs font-medium text-muted-foreground">{current.pos_cn}</p>
-        <p className="mb-4 text-2xl font-extrabold tracking-tight">{current.definition}</p>
-        <p className="text-sm leading-relaxed text-muted-foreground italic">{current.example_cn}</p>
-
-        {/* Show word + TTS after answering */}
-        {answered && (
-          <div className="mt-5 flex items-center justify-center gap-2.5 border-t border-border/70 pt-5 animate-fade-up">
-            <span className="text-3xl font-extrabold tracking-tight text-gradient">{displayWord(current.word)}</span>
-            <SpeakButton onClick={() => tts.speak(baseWord(current.word))} label="朗读单词" />
+      {/* ── prompt ── */}
+      {kind === 'cn2en' && (
+        <div className="glass-card mb-5 rounded-[2rem] p-7 animate-fade-up">
+          <p className="mb-1 text-xs font-medium text-muted-foreground">{word.pos_cn} · 选出对应的单词</p>
+          <p className="mb-4 text-2xl font-extrabold tracking-tight">{word.definition}</p>
+          <p className="text-sm leading-relaxed text-muted-foreground italic">{word.example_cn}</p>
+          {answered && (
+            <div className="mt-5 flex items-center justify-center gap-2.5 border-t border-border/70 pt-5 animate-fade-up">
+              <span className="text-3xl font-extrabold tracking-tight text-gradient">{displayWord(word.word)}</span>
+              <SpeakButton onClick={() => tts.speak(baseWord(word.word))} label="朗读单词" />
+            </div>
+          )}
+        </div>
+      )}
+      {kind === 'en2cn' && (
+        <div className="glass-card mb-5 rounded-[2rem] p-7 text-center animate-fade-up">
+          <p className="mb-2 text-xs font-medium text-muted-foreground">{word.pos_cn} · 选出它的意思</p>
+          <div className="flex items-center justify-center gap-2.5">
+            <span className="text-3xl font-extrabold tracking-tight">{displayWord(word.word)}</span>
+            <SpeakButton onClick={() => tts.speak(baseWord(word.word))} label="朗读单词" />
           </div>
-        )}
-      </div>
+          {word.ipa && <p className="mt-1 font-mono text-sm text-muted-foreground">{word.ipa}</p>}
+          {answered && (
+            <p className="mt-4 border-t border-border/70 pt-4 text-sm text-muted-foreground italic animate-fade-up">{word.example}</p>
+          )}
+        </div>
+      )}
+      {kind === 'dictation' && !answered && (
+        <div className="mb-5 flex flex-col gap-5">
+          <DictationPrompt key={word.id} word={word} />
+          <input
+            autoFocus
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && input.trim() && settle(checkSpelling(input, word))}
+            placeholder="输入英文单词..."
+            className="glass-card h-16 w-full rounded-2xl px-4 text-center text-2xl font-medium font-mono tracking-widest outline-none transition-shadow placeholder:text-muted-foreground/50 focus:ring-3 focus:ring-primary/40"
+          />
+          <Button variant="hero" className="h-14 w-full text-base" disabled={!input.trim()} onClick={() => settle(checkSpelling(input, word))}>
+            提交答案
+          </Button>
+        </div>
+      )}
+      {kind === 'dictation' && answered && (
+        <div
+          className={`mb-5 rounded-[2rem] border p-7 text-center animate-fade-up ${
+            correct ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'
+          }`}
+        >
+          <div className="mb-2 text-4xl animate-pop-in">{correct ? '✅' : '❌'}</div>
+          <div className="flex items-center justify-center gap-2.5">
+            <span className="text-3xl font-extrabold tracking-tight">{displayWord(word.word)}</span>
+            <SpeakButton onClick={() => tts.speak(baseWord(word.word))} label="朗读单词" />
+          </div>
+          {!correct && (
+            <p className="mt-1 text-sm text-muted-foreground">
+              你输入的是：<span className="font-mono font-semibold text-destructive">{input}</span>
+            </p>
+          )}
+          <p className="mt-3 text-sm font-semibold">{word.definition}</p>
+          <p className="mt-1 text-xs text-muted-foreground italic">{word.example}</p>
+        </div>
+      )}
 
-      {/* Options */}
-      <div className="mb-5 grid grid-cols-2 gap-3">
-        {options.map((opt) => {
-          // No standalone backdrop-blur here: glass-card already supplies the blur,
-          // and four simultaneously blurred tiles are expensive on low-end tablets
-          let cls = 'rounded-2xl border p-4 text-center text-base font-semibold transition-all duration-200 '
-          if (!answered) {
-            cls +=
-              'glass-card cursor-pointer hover:-translate-y-0.5 hover:border-primary/50 hover:shadow-lg active:scale-[0.97]'
-          } else if (opt.id === current.id) {
-            cls += 'border-green-500/40 bg-green-500/15 text-green-700 dark:text-green-300 animate-pop-in'
-          } else if (opt.id === selected) {
-            cls += 'border-red-500/40 bg-red-500/15 text-red-600 dark:text-red-300 animate-pop-in'
-          } else {
-            cls += 'border-border/60 bg-muted/40 text-muted-foreground opacity-60'
-          }
+      {/* ── options ── */}
+      {kind === 'cn2en' && current.wordOptions && (
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          {current.wordOptions.map((opt) => {
+            const state = !answered ? 'idle' : opt.id === word.id ? 'correct' : opt.id === answered.pick ? 'wrong' : 'dim'
+            return (
+              <button key={opt.id} className={optionCls(state)} onClick={() => settle(opt.id === word.id, opt.id)}>
+                {displayWord(opt.word)}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      {kind === 'en2cn' && current.defOptions && (
+        <div className="mb-5 grid grid-cols-1 gap-3">
+          {current.defOptions.map((opt) => {
+            const state = !answered ? 'idle' : opt.wordId === word.id ? 'correct' : opt.wordId === answered.pick ? 'wrong' : 'dim'
+            return (
+              <button key={opt.wordId} className={optionCls(state)} onClick={() => settle(opt.wordId === word.id, opt.wordId)}>
+                {opt.text}
+              </button>
+            )
+          })}
+        </div>
+      )}
 
-          return (
-            <button key={opt.id} className={cls} onClick={() => handleSelect(opt)}>
-              {displayWord(opt.word)}
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Feedback + next */}
+      {/* ── feedback + next ── */}
       {answered && (
         <div className="flex flex-col gap-3 animate-fade-up">
           <p className={`text-center font-semibold ${correct ? 'text-green-600 dark:text-green-400' : 'text-red-500 dark:text-red-400'}`}>
-            {correct ? '✅ 回答正确！' : `❌ 正确答案是 "${displayWord(current.word)}"`}
+            {correct
+              ? '✅ 回答正确！'
+              : kind === 'en2cn'
+                ? `❌ 正确答案是 "${word.definition}"`
+                : `❌ 正确答案是 "${displayWord(word.word)}"`}
           </p>
           <Button variant="hero" className="h-14 w-full text-base" onClick={handleNext}>
-            {index + 1 < practiceWords.length ? '下一题 →' : '查看成绩 🎉'}
+            {index + 1 < questions.length ? '下一题 →' : '查看成绩 🎉'}
           </Button>
         </div>
       )}

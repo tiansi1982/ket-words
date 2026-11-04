@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings, PlacementRecord } from '@/types'
 import { pruneSessionWords } from '@/lib/session'
 import { remapProfileData } from '@/lib/word-aliases'
 
@@ -38,6 +38,7 @@ interface UserStore extends UserState {
   // own schedule. resetWords is the reverse: back to brand new.
   markKnown: (wordIds: number[]) => void
   resetWords: (wordIds: number[]) => void
+  setPlacement: (record: PlacementRecord) => void
   // Error-bank rounds (R9): ERROR_BATCH words per round, repeat offenders first
   startErrorRound: () => void
   advanceErrorRound: (cleared: boolean) => void
@@ -110,6 +111,7 @@ const emptyProfileData = (): ProfileData => ({
   dailyLog: {},
   settings: {},
   errorSession: null,
+  placement: null,
 })
 
 // The active profile's data as stored top-level in state
@@ -122,6 +124,7 @@ function snapshot(s: UserState): ProfileData {
     dailyLog: s.dailyLog ?? {},
     settings: s.settings ?? {},
     errorSession: s.errorSession ?? null,
+    placement: s.placement ?? null,
   }
 }
 
@@ -148,6 +151,7 @@ export const useUserStore = create<UserStore>()(
       dailyLog: {},
       settings: {},
       errorSession: null,
+      placement: null,
 
       getTodayDate: () => todayStr(),
 
@@ -434,6 +438,8 @@ export const useUserStore = create<UserStore>()(
           }
           return { progress }
         }),
+
+      setPlacement: (record) => set({ placement: record }),
 
       startErrorRound: () =>
         set((state) => ({
