@@ -49,6 +49,8 @@ currentSession  { date, wordIds[], currentIndex, completed, results{ wordId → 
 progress        Record<wordId, WordProgress>
 errorBank       number[]（错题 ID 列表）
 dailyLog        Record<YYYY-MM-DD, number>（每天答题次数，用于打卡/统计）
+dailyRight      Record<YYYY-MM-DD, number>（每天答对次数，周报正确率，F6）
+achievementsSeen string[]（已庆祝过的徽章 id，F8）
 settings        Partial<{ passScore, autoSpeak }>（只存改过的项，读取时套默认值，R10）
 errorSession    { wordIds[], currentIndex, cleared[] } | null（进行中的错题练习轮次，R9）
 placement       { date, correct, total, estimated } | null（最近一次摸底测试，F3）
@@ -82,12 +84,15 @@ placement       { date, correct, total, estimated } | null（最近一次摸底�
   面板「立即同步」按钮
 - **合并策略（无损，`mergeProfileData`，有测试）**：
   - `progress` 按词取 `lastStudied` 较新一方（相同取本地）
-  - `dailyLog` 按天取最大值；`errorBank` 取并集（某设备上已清掉的错题可能短暂回来，
-    再练对即再次清除——好过丢错题）
+  - `dailyLog` / `dailyRight` 按天取最大值；`errorBank` 取并集（某设备上已清掉的错题可能短暂回来，
+    再练对即再次清除——好过丢错题）；`achievementsSeen` 取并集
   - `currentSession` 取今天且 `currentIndex` 较大的一方；`dailyGoal` 取本地；
     `settings` 按键合并、本地优先；`errorSession` 取本地（没有时用远端）；`placement` 取日期较新的一方
 - **会话失效**（LeanCloud 错误码 211）：账号标记 `invalid`，UI 提示重新输入密码登录，
-  本地数据不受影响
+  本地数据不受影响；会话 **90 天过期**（按 `created_at`，E6），过期同样返回 211
+- **限次与密码**（E6）：登录每 IP 每小时 20 次、每用户名每小时 10 次，注册每 IP 每小时 10 次，
+  超过返回 429 / 错误码 219（UI 提示"尝试次数太多"）；注册密码至少 8 位（登录仍接受老账号的 6 位）；
+  注册前先查重名，插入失败才算数据库错误（500），不再一律当作重名
 - **UI**：「谁在学？」面板底部「云同步」区块，对当前档案操作：未绑定时登录/注册表单；
   已绑定时显示账号、上次同步时间、「立即同步」与「解绑」（二次确认，解绑只删本机绑定，
   不删云端数据）
@@ -104,7 +109,9 @@ consecutiveWrong 连续答错次数（答对清零）；≥2 时拼写题显示�
 srsLevel        间隔重复等级（0–5，索引复习间隔表；mastered 后有意义）
 dueDate         下次复习日期 YYYY-MM-DD（本地时区）；null = 已巩固（毕业）
 speakFailCount  跟读未过关/跳过的累计次数（R14，可选字段）
+speakPassCount  跟读过关的累计次数（F8，可选字段）
 lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
+masteredAt      首次变为 mastered 的时间戳（F6 周报"新掌握"，老记录没有）
 ```
 
 ### 计分口径（R14）
@@ -116,7 +123,9 @@ lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
 
 ### 打卡与连续天数
 - 每次答题（今日学习/错题/选择题）给当天 `dailyLog` 计数 +1，按 profile 独立
-- 连续打卡 streak：从今天（今天还没学则从昨天）往前数连续有记录的天数
+- 连续打卡 streak：从今天（今天还没学则从昨天）往前数连续有记录的天数；
+  **每个自然月自动补签一次**（F8）：连续记录中间缺一天不中断，同一个月缺第二天才断，
+  补签不能用在开头（昨天和前天都没学 = 0）
 - 首页显示「🔥 连续打卡 N 天」；统计页「最近 14 天」卡片同时显示 streak
 
 ### 掌握规则与间隔重复（SRS）
@@ -321,6 +330,10 @@ lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
 - **总体进度条**：已掌握 / 1574
 - **最近 14 天**：每日答题数柱状图（主色柱、零学习日灰色矮柱、悬停显示日期和题数），
   卡片右上角显示「🔥 连续打卡 N 天」
+- **本周卡片**（F6，周一到周日）：学习天数、答题数、正确率（`dailyRight / dailyLog`）、新掌握
+  （`masteredAt` 在本周内），每项带与上周的 ↑↓；本周跟读平均分（本周学过的词的 `lastSpeakScore`）；
+  「最常错的词」= 错题本按连错次数、再按答错次数排前 5，点一下朗读
+- **成就条**：已获得 / 15，点击进成就页（5.9）
 - **六格数据卡**：
   - 已掌握（绿色）
   - 学习中（黄色）
@@ -363,6 +376,18 @@ lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
 - **"重新学"语义**（`resetWords`）：写入一条全新的 `status: 'new'` 记录（计数清零、`lastStudied` 为现在），
   不是删除——云同步合并按"较新一方胜出"，删除会被云端旧记录顶回来；错题本不动
 - 操作后顶部短暂提示（3 秒），例如"已把 120 个词标为已会，7 天后开始复习"
+
+---
+
+### 5.9 成就（/achievements，F8）
+
+- 15 个徽章全部由档案数据推导（`src/lib/achievements.ts`），不会因同步而"丢失"：连续 3 / 7 / 30 / 100 天、
+  掌握 50 / 200 / 500 / 1000 / 全部、巩固 100 词、跟读过关 50 / 300 次、一天答 50 题、完成摸底、错题本清零
+  （曾经答错过且现在为空）
+- 成就页：3 列网格，已获得的彩色、未获得的灰色并显示进度 `value / target`
+- 庆祝：学习完成总结页掉彩纸（`Confetti`，纯 CSS，减少动态效果时自动关闭）并列出本次新获得的徽章；
+  在练习或错题里获得的徽章回到首页时顶部弹出提示，点击进成就页，6 秒后自动标记已看过
+- 音效（设置「答题音效」，默认开）：答对 / 答错 / 完成学习 / 获得徽章，`src/lib/sfx.ts` 用 Web Audio 合成，无音频文件
 
 ---
 
@@ -468,6 +493,10 @@ lastSpeakScore  最近一次跟读的云评分；null = 跳过（可选字段）
   - `apple-mobile-web-app-capable`：可添加到主屏幕全屏运行
   - `apple-touch-icon`：192×192 紫色图标
   - `viewport-fit=cover`：适配刘海屏安全区
+- **错误上报**（E4）：前端 `window.error` / `unhandledrejection` / Error Boundary 把错误发到 `POST /api/report`
+  （`src/services/report.ts`：去重、每次加载最多 5 条、开发模式不发；只含信息、堆栈、页面路径、构建号），
+  服务端存 D1 `client_errors`（`migrations/0003_client_errors.sql`），字段截断、每 IP 每天 50 条、保留 30 天；
+  查看命令见 README
 - **手动部署**（一般不需要）：`npm run build && npx wrangler pages deploy dist --project-name ket-words --commit-dirty=true`
 - **密钥**：`SOE_APP_ID` / `SOE_SECRET_ID` / `SOE_SECRET_KEY` 用 `npx wrangler pages secret put` 设置；
   可选配额参数见 `.dev.vars.example`
