@@ -139,6 +139,10 @@ export function mergeProfileData(local: ProfileData, remote: ProfileData): Profi
   for (const [day, n] of Object.entries(local.dailyLog ?? {})) {
     dailyLog[day] = Math.max(dailyLog[day] ?? 0, n)
   }
+  const dailyRight: Record<string, number> = { ...(remote.dailyRight ?? {}) }
+  for (const [day, n] of Object.entries(local.dailyRight ?? {})) {
+    dailyRight[day] = Math.max(dailyRight[day] ?? 0, n)
+  }
 
   const errorBank = [...new Set([...(local.errorBank ?? []), ...(remote.errorBank ?? [])])]
 
@@ -153,6 +157,8 @@ export function mergeProfileData(local: ProfileData, remote: ProfileData): Profi
     // a round in progress is a device-local thing
     errorSession: local.errorSession ?? remote.errorSession ?? null,
     placement: newerPlacement(local.placement ?? null, remote.placement ?? null),
+    dailyRight,
+    achievementsSeen: [...new Set([...(local.achievementsSeen ?? []), ...(remote.achievementsSeen ?? [])])],
   }
 }
 

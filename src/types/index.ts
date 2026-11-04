@@ -33,7 +33,9 @@ export interface WordProgress {
   // updateProgress(false) — "one word, two questions" — these just keep the
   // speaking side visible on its own for stats and weak-word lists
   speakFailCount?: number
+  speakPassCount?: number
   lastSpeakScore?: number | null // null = skipped / no score
+  masteredAt?: number // when status first became mastered (weekly report, F6); absent on older records
 }
 
 // How the child left the read-aloud card
@@ -79,6 +81,7 @@ export interface ProfileMeta {
 export interface ProfileSettings {
   passScore: number // read-aloud pass mark, 60–100 (default 90)
   autoSpeak: boolean // auto-play word + sentence on the show/result cards
+  sounds: boolean // answer / completion sound effects (F8)
 }
 
 // Per-profile learning data. The active profile's copy lives at the top level
@@ -90,9 +93,11 @@ export interface ProfileData {
   progress: Record<number, WordProgress>
   errorBank: number[] // wordIds in error bank
   dailyLog: Record<string, number> // YYYY-MM-DD (local) → answers that day
+  dailyRight?: Record<string, number> // YYYY-MM-DD → correct answers that day (F6); absent before
   settings?: Partial<ProfileSettings> // absent/partial on data from before R10
   errorSession?: ErrorSession | null // in-progress error-bank round (R9)
   placement?: PlacementRecord | null // last placement test (F3)
+  achievementsSeen?: string[] // badge ids already celebrated (F8)
 }
 
 // Sync account bound to one profile (P3 cloud sync, /api/sync backend)

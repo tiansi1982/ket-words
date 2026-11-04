@@ -7,6 +7,7 @@ import { recorder } from '@/services/recorder'
 import { useOnline } from '@/lib/use-online'
 import { useSettings } from '@/lib/use-settings'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
+import { playSfx } from '@/lib/sfx'
 import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -155,6 +156,7 @@ export default function ErrorBank() {
     setPhase('result')
     updateProgress(currentWord.id, correct)
     if (correct && !speakFailed) removeFromErrorBank(currentWord.id)
+    if (settings.sounds) void playSfx(correct ? 'correct' : 'wrong')
     if (settings.autoSpeak) tts.speakAll([baseWord(currentWord.word), currentWord.example])
   }
 

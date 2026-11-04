@@ -6,6 +6,8 @@ import { tts } from '@/services/tts'
 import { baseWord, displayWord, shuffled } from '@/lib/word-utils'
 import { buildWordOptions, buildDefinitionOptions, matchesGap, gapFor, type DefinitionOption } from '@/lib/exercise'
 import DictationPrompt from '@/components/DictationPrompt'
+import { useSettings } from '@/lib/use-settings'
+import { playSfx } from '@/lib/sfx'
 import GapFillPrompt from '@/components/GapFillPrompt'
 import AudioChoicePrompt from '@/components/AudioChoicePrompt'
 import PageHeader, { BackButton } from '@/components/PageHeader'
@@ -81,6 +83,7 @@ export default function Practice() {
   const navigate = useNavigate()
   const { progress, updateProgress, addToErrorBank } = useUserStore()
   const { words, checkSpelling } = useWordStore()
+  const settings = useSettings()
 
   const [mode, setMode] = useState<Mode>(loadMode)
   const [round, setRound] = useState(0) // 0 = start screen; bumps re-draw questions
@@ -121,6 +124,7 @@ export default function Practice() {
   const settle = (correct: boolean, pick?: number) => {
     if (answered || !current) return
     setAnswered({ correct, pick })
+    if (settings.sounds) void playSfx(correct ? 'correct' : 'wrong')
     if (correct) {
       setScore((s) => s + 1)
       updateProgress(current.word.id, true)

@@ -3,6 +3,8 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { shuffled } from '@/lib/word-utils'
 import { useOnline } from '@/lib/use-online'
+import { useAchievements, achievementById } from '@/lib/use-achievements'
+import { useEffect } from 'react'
 import { pct } from '@/lib/utils'
 import ProfileSwitcher from '@/components/ProfileSwitcher'
 import ProgressBar from '@/components/ProgressBar'
@@ -48,6 +50,14 @@ export default function Home() {
   const { progress, dailyGoal, errorBank, currentSession, placement, startDailySession, getTodayDate, getMasteredIds, getDueReviewIds, getStreak } = useUserStore()
   const { words, pickDailyWords } = useWordStore()
   const online = useOnline()
+  const { fresh, markSeen } = useAchievements()
+  const freshBadges = fresh.map(achievementById).filter((a) => a !== undefined)
+  // Badges earned in practice / error bank get their moment here, then are marked seen
+  useEffect(() => {
+    if (!fresh.length) return
+    const t = setTimeout(markSeen, 6000)
+    return () => clearTimeout(t)
+  }, [fresh, markSeen])
 
   const masteredIds = getMasteredIds()
   const learningIds = new Set(
@@ -201,6 +211,16 @@ export default function Home() {
             onClick={() => navigate('/settings')}
           />
         </div>
+
+        {freshBadges.length > 0 && (
+          <button
+            onClick={() => { markSeen(); navigate('/achievements') }}
+            role="status"
+            className="glass-card fixed left-1/2 top-4 z-50 flex -translate-x-1/2 items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold animate-pop-in"
+          >
+            🏅 新成就：{freshBadges.map((a) => `${a.icon} ${a.title}`).join('、')}
+          </button>
+        )}
 
         <p className="mt-6 text-xs text-muted-foreground animate-fade-up [animation-delay:310ms]">
           每日目标：{dailyGoal} 个单词

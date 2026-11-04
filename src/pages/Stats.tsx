@@ -2,18 +2,37 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUserStore, toDateStr } from '@/store/userStore'
 import { useSettings } from '@/lib/use-settings'
+import { summarizeWeek, weekStart, hardestWords } from '@/lib/weekly'
+import { useAchievements } from '@/lib/use-achievements'
+import { ACHIEVEMENTS } from '@/lib/achievements'
+import { displayWord } from '@/lib/word-utils'
+import { speakWordAndExample } from '@/lib/speak'
 import { useWordStore } from '@/store/wordStore'
 import { difficultyOf, type Difficulty } from '@/lib/word-utils'
 import { pct } from '@/lib/utils'
 import { BackButton } from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
-import { CircleCheck, BookOpen, Clock, Trophy, Zap, Target, Flame, SlidersHorizontal, ChevronRight } from 'lucide-react'
+import { CircleCheck, BookOpen, Clock, Trophy, Zap, Target, Flame, SlidersHorizontal, ChevronRight, CalendarRange, Award } from 'lucide-react'
 
 export default function Stats() {
   const navigate = useNavigate()
-  const { progress, errorBank, dailyGoal, getMasteredIds, getDueReviewIds, getStreak, dailyLog } = useUserStore()
+  const { progress, errorBank, dailyGoal, getMasteredIds, getDueReviewIds, getStreak, dailyLog, getProfileData, activeProfileId } = useUserStore()
   const settings = useSettings()
-  const { words } = useWordStore()
+  const { words, getWord } = useWordStore()
+  const { earned } = useAchievements()
+
+  // This week vs last week (F6)
+  const weekly = useMemo(() => {
+    const data = getProfileData(activeProfileId)
+    if (!data) return null
+    const monday = weekStart(new Date())
+    const lastMonday = new Date(monday)
+    lastMonday.setDate(monday.getDate() - 7)
+    return { now: summarizeWeek(data, monday), prev: summarizeWeek(data, lastMonday), hardest: hardestWords(data, 5) }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [progress, dailyLog, errorBank, activeProfileId])
+  const delta = (a: number, b: number) => (a === b ? '' : a > b ? ` ↑${a - b}` : ` ↓${b - a}`)
+  const md = (s: string) => `${Number(s.slice(5, 7))}/${Number(s.slice(8, 10))}`
 
   const all = Object.values(progress)
   const masteredIds = getMasteredIds()
@@ -118,6 +137,71 @@ export default function Stats() {
           <span>今天</span>
         </div>
       </div>
+
+      {/* This week (F6) */}
+      {weekly && (
+        <div className="glass-card mb-4 rounded-[1.75rem] p-6 animate-fade-up [animation-delay:100ms]">
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="flex items-center gap-1.5 text-sm font-semibold text-muted-foreground">
+              <CalendarRange className="h-4 w-4" /> 本周 {md(weekly.now.start)}–{md(weekly.now.end)}
+            </h2>
+            <span className="text-[11px] text-muted-foreground">括号内与上周比</span>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { label: '学习天数', value: `${weekly.now.days} 天`, diff: delta(weekly.now.days, weekly.prev.days) },
+              { label: '答题', value: `${weekly.now.answers} 题`, diff: delta(weekly.now.answers, weekly.prev.answers) },
+              { label: '正确率', value: weekly.now.accuracy === null ? '—' : `${weekly.now.accuracy}%`, diff: weekly.now.accuracy !== null && weekly.prev.accuracy !== null ? delta(weekly.now.accuracy, weekly.prev.accuracy) : '' },
+              { label: '新掌握', value: `${weekly.now.mastered} 词`, diff: delta(weekly.now.mastered, weekly.prev.mastered) },
+            ].map((t) => (
+              <div key={t.label} className="glass-chip rounded-2xl px-3 py-2.5">
+                <div className="text-lg font-extrabold tracking-tight tabular-nums">
+                  {t.value}
+                  {t.diff && <span className={`ml-1 text-xs font-semibold ${t.diff.startsWith(' ↑') ? 'text-green-600 dark:text-green-400' : 'text-red-500'}`}>{t.diff}</span>}
+                </div>
+                <div className="text-[11px] text-muted-foreground">{t.label}</div>
+              </div>
+            ))}
+          </div>
+          <p className="mt-3 text-xs text-muted-foreground tabular-nums">
+            {weekly.now.speakAvg !== null ? `本周跟读平均 ${weekly.now.speakAvg} 分` : '本周还没有跟读记录'}
+          </p>
+          {weekly.hardest.length > 0 && (
+            <div className="mt-3">
+              <div className="mb-1.5 text-[11px] font-medium text-muted-foreground">最常错的词（点一下朗读）</div>
+              <div className="flex flex-wrap gap-1.5">
+                {weekly.hardest.map((id) => {
+                  const w = getWord(id)
+                  if (!w) return null
+                  return (
+                    <button key={id} onClick={() => speakWordAndExample(w)} className="rounded-full bg-red-500/10 px-2.5 py-1 text-xs font-semibold text-red-600 dark:text-red-300 active:scale-95">
+                      {displayWord(w.word)}
+                      {(progress[id]?.consecutiveWrong ?? 0) >= 2 && <span className="ml-1 opacity-70 tabular-nums">×{progress[id]!.consecutiveWrong}</span>}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Achievements strip (F8) */}
+      <button
+        onClick={() => navigate('/achievements')}
+        className="glass-card mb-4 flex w-full items-center gap-3 rounded-[1.4rem] p-4 text-left animate-fade-up [animation-delay:115ms] transition-colors hover:bg-muted/60"
+      >
+        <span className="icon-tile h-10 w-10 shrink-0 rounded-[0.85rem] bg-linear-to-br from-amber-400 to-orange-500">
+          <Award className="h-5 w-5" />
+        </span>
+        <span className="min-w-0 flex-1 text-sm">
+          <span className="font-semibold tabular-nums">成就 {earned.length} / {ACHIEVEMENTS.length}</span>
+          <span className="block truncate text-xs text-muted-foreground">
+            {earned.length ? ACHIEVEMENTS.filter((a) => earned.includes(a.id)).map((a) => a.icon).join(' ') : '完成今天的学习拿第一个徽章'}
+          </span>
+        </span>
+        <ChevronRight className="h-4 w-4 text-muted-foreground/50" />
+      </button>
 
       {/* Stats grid */}
       <div className="mb-4 grid grid-cols-2 gap-3">

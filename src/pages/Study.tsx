@@ -13,6 +13,7 @@ import SessionSummary from '@/components/SessionSummary'
 import DictationPrompt from '@/components/DictationPrompt'
 import GapFillPrompt from '@/components/GapFillPrompt'
 import { speakWordAndExample } from '@/lib/speak'
+import { playSfx } from '@/lib/sfx'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
@@ -119,6 +120,7 @@ export default function Study() {
     updateProgress(currentWord.id, correct)
     recordSessionResult(currentWord.id, { spelled: correct, quiz: quizType })
     if (!correct) addToErrorBank(currentWord.id)
+    if (settings.sounds) void playSfx(correct ? 'correct' : 'wrong')
     if (settings.autoSpeak) speakWordAndExample(currentWord)
     nextPhase()
   }

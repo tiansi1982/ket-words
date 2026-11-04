@@ -1,5 +1,10 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useUserStore, toDateStr } from '@/store/userStore'
+import { useSettings } from '@/lib/use-settings'
+import { useAchievements, achievementById } from '@/lib/use-achievements'
+import { playSfx } from '@/lib/sfx'
+import Confetti from '@/components/Confetti'
 import { useWordStore } from '@/store/wordStore'
 import { displayWord } from '@/lib/word-utils'
 import { speakWordAndExample } from '@/lib/speak'
@@ -35,6 +40,17 @@ export default function SessionSummary({ session }: { session: DailySession }) {
   const navigate = useNavigate()
   const { getWord } = useWordStore()
   const progress = useUserStore((s) => s.progress)
+  const settings = useSettings()
+  const { fresh, markSeen } = useAchievements()
+  // Snapshot the badges earned up to now: marking them seen below would
+  // otherwise empty the list on the very next render
+  const [newBadges] = useState(() => fresh.map(achievementById).filter((a) => a !== undefined))
+
+  // Celebrate once on arrival; badges shown here count as seen
+  useEffect(() => {
+    if (settings.sounds) void playSfx(newBadges.length ? 'badge' : 'complete')
+    markSeen()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const rows = session.wordIds.flatMap((id) => {
     const word = getWord(id)
@@ -57,6 +73,7 @@ export default function SessionSummary({ session }: { session: DailySession }) {
 
   return (
     <div className="min-h-screen flex flex-col px-5 py-8 max-w-lg mx-auto w-full">
+      <Confetti />
       <div className="flex flex-col items-center text-center">
         <div className="text-6xl animate-pop-in">🎉</div>
         <h2 className="mt-3 text-3xl font-extrabold tracking-tight animate-fade-up">今日学习完成！</h2>
@@ -85,6 +102,19 @@ export default function SessionSummary({ session }: { session: DailySession }) {
           {missed > 0 && <p className="text-xs text-muted-foreground tabular-nums">今天有 {missed} 个词进了错题本</p>}
         </div>
       </div>
+
+      {newBadges.length > 0 && (
+        <div className="glass-card mt-4 rounded-[1.4rem] p-4 animate-pop-in [animation-delay:170ms]">
+          <div className="mb-2 text-xs font-semibold text-muted-foreground">🏅 新成就</div>
+          <div className="flex flex-wrap gap-2">
+            {newBadges.map((a) => (
+              <span key={a.id} className="inline-flex items-center gap-1.5 rounded-full bg-amber-500/15 px-3 py-1 text-sm font-semibold text-amber-700 dark:text-amber-300">
+                <span>{a.icon}</span> {a.title}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="glass-card mt-4 flex flex-col divide-y divide-border/60 rounded-[1.75rem] px-2 py-1 animate-fade-up [animation-delay:200ms]">
         {rows.map(({ word, r }) => (

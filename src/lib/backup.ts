@@ -56,6 +56,8 @@ export function parseBackup(text: string): { profileName: string; data: ProfileD
     settings: d.settings && typeof d.settings === 'object' ? d.settings : {},
     errorSession: d.errorSession ?? null,
     placement: d.placement ?? null,
+    dailyRight: d.dailyRight && typeof d.dailyRight === 'object' ? d.dailyRight : {},
+    achievementsSeen: Array.isArray(d.achievementsSeen) ? d.achievementsSeen.filter((x): x is string => typeof x === 'string') : [],
   }
   return { profileName: typeof b.profileName === 'string' ? b.profileName : '', data: remapProfileData(data) }
 }

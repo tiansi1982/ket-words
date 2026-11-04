@@ -133,13 +133,20 @@ export default function Settings() {
         <p className="mt-3 text-xs text-muted-foreground">到期复习的词优先占名额，剩下的才是新词。</p>
       </Section>
 
-      <Section icon={<Volume2 className="h-4 w-4" />} tile="bg-linear-to-br from-teal-400 to-emerald-600" title="朗读">
+      <Section icon={<Volume2 className="h-4 w-4" />} tile="bg-linear-to-br from-teal-400 to-emerald-600" title="朗读与音效">
         <div className="flex items-center justify-between gap-4">
           <div>
             <div className="text-sm font-medium">自动朗读</div>
             <p className="text-xs text-muted-foreground">进入单词卡和答题结果时自动读单词 + 例句；关掉后点喇叭才读</p>
           </div>
           <Toggle checked={settings.autoSpeak} onChange={(v) => updateSettings({ autoSpeak: v })} label="自动朗读" />
+        </div>
+        <div className="mt-4 flex items-center justify-between gap-4 border-t border-border/60 pt-4">
+          <div>
+            <div className="text-sm font-medium">答题音效</div>
+            <p className="text-xs text-muted-foreground">答对、答错、完成学习时的小提示音</p>
+          </div>
+          <Toggle checked={settings.sounds} onChange={(v) => updateSettings({ sounds: v })} label="答题音效" />
         </div>
       </Section>
 

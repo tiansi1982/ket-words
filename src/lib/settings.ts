@@ -6,6 +6,7 @@ import type { ProfileSettings } from '@/types'
 export const DEFAULT_SETTINGS: ProfileSettings = {
   passScore: 90,
   autoSpeak: true,
+  sounds: true,
 }
 
 export const PASS_SCORE_MIN = 60
@@ -19,6 +20,7 @@ export function resolveSettings(raw?: Partial<ProfileSettings> | null): ProfileS
     ? Math.min(PASS_SCORE_MAX, Math.max(PASS_SCORE_MIN, Math.round(score)))
     : DEFAULT_SETTINGS.passScore
   merged.autoSpeak = merged.autoSpeak !== false
+  merged.sounds = merged.sounds !== false
   return merged
 }
 

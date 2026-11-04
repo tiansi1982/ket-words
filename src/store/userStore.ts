@@ -49,8 +49,10 @@ interface UserStore extends UserState {
   getTodayDate: () => string
   // Mastered words whose review is due (most overdue first)
   getDueReviewIds: () => number[]
-  // Consecutive study days; today not counted against the streak until it ends
+  // Consecutive study days; today not counted against the streak until it
+  // ends, and one missed day per calendar month is forgiven (F8 补签)
   getStreak: () => number
+  markAchievementsSeen: (ids: string[]) => void
 }
 
 // Error-bank practice runs in rounds of this many words
@@ -112,6 +114,8 @@ const emptyProfileData = (): ProfileData => ({
   settings: {},
   errorSession: null,
   placement: null,
+  dailyRight: {},
+  achievementsSeen: [],
 })
 
 // The active profile's data as stored top-level in state
@@ -125,6 +129,8 @@ function snapshot(s: UserState): ProfileData {
     settings: s.settings ?? {},
     errorSession: s.errorSession ?? null,
     placement: s.placement ?? null,
+    dailyRight: s.dailyRight ?? {},
+    achievementsSeen: s.achievementsSeen ?? [],
   }
 }
 
@@ -152,6 +158,8 @@ export const useUserStore = create<UserStore>()(
       settings: {},
       errorSession: null,
       placement: null,
+      dailyRight: {},
+      achievementsSeen: [],
 
       getTodayDate: () => todayStr(),
 
@@ -317,12 +325,14 @@ export const useUserStore = create<UserStore>()(
           let status: StudyStatus = existing.status
           let srsLevel = existing.srsLevel ?? 0
           let dueDate = existing.dueDate
+          let masteredAt = existing.masteredAt
 
           if (existing.status !== 'mastered') {
             status = correctCount >= 3 ? 'mastered' : 'learning'
             if (status === 'mastered') {
               srsLevel = 0
               dueDate = daysFromNowStr(SRS_INTERVALS[0])
+              masteredAt = Date.now()
             }
           } else if (!correct) {
             // Forgot a mastered word: restart the review ladder from tomorrow
@@ -345,6 +355,9 @@ export const useUserStore = create<UserStore>()(
               ...(state.dailyLog ?? {}),
               [today]: ((state.dailyLog ?? {})[today] ?? 0) + 1,
             },
+            dailyRight: correct
+              ? { ...(state.dailyRight ?? {}), [today]: ((state.dailyRight ?? {})[today] ?? 0) + 1 }
+              : state.dailyRight ?? {},
             progress: {
               ...state.progress,
               [wordId]: {
@@ -355,6 +368,7 @@ export const useUserStore = create<UserStore>()(
                 status,
                 srsLevel,
                 dueDate,
+                masteredAt,
                 lastStudied: Date.now(),
               },
             },
@@ -377,6 +391,7 @@ export const useUserStore = create<UserStore>()(
                 ...existing,
                 lastSpeakScore: score,
                 speakFailCount: (existing.speakFailCount ?? 0) + (passed ? 0 : 1),
+                speakPassCount: (existing.speakPassCount ?? 0) + (passed ? 1 : 0),
               },
             },
           }
@@ -411,6 +426,7 @@ export const useUserStore = create<UserStore>()(
               consecutiveWrong: 0,
               srsLevel: KNOWN_SRS_LEVEL,
               dueDate,
+              masteredAt: now,
               lastStudied: now,
             }
           }
@@ -500,12 +516,35 @@ export const useUserStore = create<UserStore>()(
         // No study yet today: the streak from yesterday is still alive
         if (!log[toDateStr(d)]) d.setDate(d.getDate() - 1)
         let streak = 0
-        while ((log[toDateStr(d)] ?? 0) > 0) {
-          streak++
+        const graceUsed = new Set<string>() // YYYY-MM months whose free miss is spent
+        for (;;) {
+          const key = toDateStr(d)
+          if ((log[key] ?? 0) > 0) {
+            streak++
+          } else {
+            // One missed day per calendar month is forgiven, but only inside
+            // a streak — a stretch can't start with a forgiven day
+            const month = key.slice(0, 7)
+            if (streak === 0 || graceUsed.has(month)) break
+            graceUsed.add(month)
+          }
           d.setDate(d.getDate() - 1)
         }
         return streak
       },
+
+      markAchievementsSeen: (ids) =>
+        set((state) => {
+          const seen = new Set(state.achievementsSeen ?? [])
+          let changed = false
+          for (const id of ids) {
+            if (!seen.has(id)) {
+              seen.add(id)
+              changed = true
+            }
+          }
+          return changed ? { achievementsSeen: [...seen] } : state
+        }),
     }),
     {
       name: 'ket-words-user',
