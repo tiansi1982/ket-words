@@ -7,10 +7,11 @@ import { useOnline } from '@/lib/use-online'
 import { useSettings } from '@/lib/use-settings'
 import { displayWord, spellingHint } from '@/lib/word-utils'
 import { wordStatus } from '@/lib/word-status'
-import { phasePlan, quizTypeFor } from '@/lib/exercise'
+import { phasePlan, quizTypeFor, matchesGap } from '@/lib/exercise'
 import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
 import SessionSummary from '@/components/SessionSummary'
 import DictationPrompt from '@/components/DictationPrompt'
+import GapFillPrompt from '@/components/GapFillPrompt'
 import { speakWordAndExample } from '@/lib/speak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -65,8 +66,9 @@ export default function Study() {
   const { plan, quizType, review } = useMemo(() => {
     const p = wordId === undefined ? undefined : useUserStore.getState().progress[wordId]
     const review = wordStatus(p, getTodayDate()) === 'due'
-    return { plan: phasePlan(review, hasSpeech), quizType: quizTypeFor(p, review), review }
-  }, [wordId, getTodayDate])
+    const word = wordId === undefined ? undefined : getWord(wordId)
+    return { plan: phasePlan(review, hasSpeech), quizType: quizTypeFor(p, review, word), review }
+  }, [wordId, getTodayDate, getWord])
   const [phaseIdx, setPhaseIdx] = useState(0)
   const phase = plan[Math.min(phaseIdx, plan.length - 1)]
   const [input, setInput] = useState('')
@@ -112,7 +114,7 @@ export default function Study() {
 
   const handleSubmit = () => {
     if (!currentWord) return
-    const correct = checkSpelling(input, currentWord)
+    const correct = quizType === 'gap' ? matchesGap(input, currentWord) : checkSpelling(input, currentWord)
     setLastCorrect(correct)
     updateProgress(currentWord.id, correct)
     recordSessionResult(currentWord.id, { spelled: correct, quiz: quizType })
@@ -227,6 +229,13 @@ export default function Study() {
               )}
               {spellHint}
             </DictationPrompt>
+          ) : quizType === 'gap' ? (
+            <GapFillPrompt key={currentWord.id} word={currentWord}>
+              <span className="text-xs text-orange-500">
+                复习{lastStudiedText(progress[currentWord.id]?.lastStudied)}
+              </span>
+              {spellHint}
+            </GapFillPrompt>
           ) : (
             <div className="glass-card flex w-full flex-1 flex-col justify-center rounded-[2rem] p-8 text-center">
               {review && kindChip}
@@ -239,7 +248,7 @@ export default function Study() {
 
           <div className="w-full">
             <label className="mb-2.5 block text-center text-sm font-medium text-muted-foreground">
-              {quizType === 'dictation' ? '把听到的单词拼出来' : '请拼写这个单词'}
+              {quizType === 'dictation' ? '把听到的单词拼出来' : quizType === 'gap' ? '填上空缺的单词' : '请拼写这个单词'}
             </label>
             <input
               autoFocus

@@ -68,3 +68,27 @@ test('exercise-test', async () => {
 
   console.log('✅ exercise assertions passed')
 })
+
+test('exercise-test: gap-fill rules (F4 second half)', async () => {
+  const { quizTypeFor, matchesGap, GAP_FROM_SRS_LEVEL } = await import('../src/lib/exercise')
+  const { useWordStore, wordsLoaded } = await import('../src/store/wordStore')
+  await wordsLoaded
+  const { words } = useWordStore.getState()
+  const fly = words.find((w) => w.word === 'fly')!
+  const able = words.find((w) => w.word === 'able')!
+  const p = (srsLevel: number) => ({ wordId: 1, status: 'mastered' as const, correctCount: 3, wrongCount: 0, lastStudied: 0, srsLevel })
+
+  assert.equal(quizTypeFor(p(GAP_FROM_SRS_LEVEL), true, able), 'gap', 'late reviews fill the gap')
+  assert.equal(quizTypeFor(p(GAP_FROM_SRS_LEVEL - 1), true, able), 'dictation')
+  assert.equal(quizTypeFor(p(GAP_FROM_SRS_LEVEL), true), 'dictation', 'no word → cannot locate the gap → dictation')
+  assert.equal(quizTypeFor(p(GAP_FROM_SRS_LEVEL), false, able), 'spell')
+
+  // the inflected form in the sentence or the base spelling both count
+  assert.ok(matchesGap('flew', fly), 'form in the sentence')
+  assert.ok(matchesGap(' Flew ', fly))
+  assert.ok(matchesGap('fly', fly), 'base spelling')
+  assert.ok(!matchesGap('flies', fly), 'other inflection not in the sentence')
+  assert.ok(!matchesGap('', fly))
+  assert.ok(matchesGap('able', able))
+  console.log('✅ gap-fill assertions passed')
+})

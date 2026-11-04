@@ -1,9 +1,9 @@
-import { baseWord, difficultyOf, shuffled, type Difficulty } from '@/lib/word-utils'
+import { baseWord, difficultyOf, findInExample, matchesSpelling, shuffled, type Difficulty } from '@/lib/word-utils'
 import type { Word, WordProgress } from '@/types'
 
 // ── Daily study: which phases a word goes through (F4) ──
 export type Phase = 'show' | 'speak' | 'quiz' | 'result'
-export type QuizType = 'spell' | 'dictation'
+export type QuizType = 'spell' | 'dictation' | 'gap'
 
 // New and half-learned words are taught first (card → read aloud → spell).
 // Due reviews are tested first — recall before re-exposure — then the card
@@ -13,10 +13,36 @@ export function phasePlan(review: boolean, speech: boolean): Phase[] {
   return speech ? ['show', 'speak', 'quiz', 'result'] : ['show', 'quiz', 'result']
 }
 
-// Reviews that already survived one interval get dictation (hear → spell);
-// a word mastered yesterday still gets the Chinese prompt
-export function quizTypeFor(p: WordProgress | undefined, review: boolean): QuizType {
-  return review && (p?.srsLevel ?? 0) >= 1 ? 'dictation' : 'spell'
+// The further a review has come, the weaker the cue: a word mastered
+// yesterday gets the Chinese prompt, one past its first interval gets
+// dictation (hear → spell), one at the 15/30-day reviews fills the gap in
+// its example sentence (context only). Gap-fill needs a locatable target.
+export const GAP_FROM_SRS_LEVEL = 3
+export function quizTypeFor(p: WordProgress | undefined, review: boolean, word?: Word): QuizType {
+  if (!review) return 'spell'
+  const level = p?.srsLevel ?? 0
+  if (level >= GAP_FROM_SRS_LEVEL && word && findInExample(word.example, word.word, word.forms)) return 'gap'
+  return level >= 1 ? 'dictation' : 'spell'
+}
+
+// Where the target word sits in the example sentence, for gap-fill
+export function gapFor(word: Word): { before: string; answer: string; after: string } | null {
+  const m = findInExample(word.example, word.word, word.forms)
+  if (!m) return null
+  return {
+    before: word.example.slice(0, m.index),
+    answer: word.example.slice(m.index, m.index + m.length),
+    after: word.example.slice(m.index + m.length),
+  }
+}
+
+// Gap-fill accepts the form in the sentence (goes, flew) or the base spelling
+export function matchesGap(input: string, word: Word): boolean {
+  const n = input.trim().toLowerCase().replace(/\s+/g, ' ')
+  if (!n) return false
+  const m = findInExample(word.example, word.word, word.forms)
+  if (m && word.example.slice(m.index, m.index + m.length).toLowerCase() === n) return true
+  return matchesSpelling(input, word.word)
 }
 
 // ── Multiple choice distractors ──

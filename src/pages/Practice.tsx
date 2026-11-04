@@ -4,27 +4,32 @@ import { useUserStore } from '@/store/userStore'
 import { useWordStore } from '@/store/wordStore'
 import { tts } from '@/services/tts'
 import { baseWord, displayWord, shuffled } from '@/lib/word-utils'
-import { buildWordOptions, buildDefinitionOptions, type DefinitionOption } from '@/lib/exercise'
+import { buildWordOptions, buildDefinitionOptions, matchesGap, gapFor, type DefinitionOption } from '@/lib/exercise'
 import DictationPrompt from '@/components/DictationPrompt'
+import GapFillPrompt from '@/components/GapFillPrompt'
+import AudioChoicePrompt from '@/components/AudioChoicePrompt'
 import PageHeader, { BackButton } from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
 import SpeakButton from '@/components/SpeakButton'
 import { Button } from '@/components/ui/button'
-import { RotateCcw, Shuffle, Languages, Headphones, ListChecks } from 'lucide-react'
+import { RotateCcw, Shuffle, Languages, Headphones, ListChecks, PencilLine, Ear } from 'lucide-react'
 import type { Word } from '@/types'
 
 const BATCH = 10
 
-// Question kinds (F4): the classic Chinese → pick the English word, the
-// reverse, and dictation (hear → spell). "mixed" draws one per question.
-type Kind = 'cn2en' | 'en2cn' | 'dictation'
+// Question kinds (F4): Chinese → pick the English word, the reverse,
+// dictation (hear → spell), sentence gap-fill, and hear → pick the word.
+// "mixed" draws one per question.
+type Kind = 'cn2en' | 'en2cn' | 'dictation' | 'gap' | 'audio'
 type Mode = Kind | 'mixed'
-const KINDS: Kind[] = ['cn2en', 'en2cn', 'dictation']
+const KINDS: Kind[] = ['cn2en', 'en2cn', 'dictation', 'gap', 'audio']
 const MODES: { key: Mode; label: string; desc: string; icon: typeof Shuffle }[] = [
-  { key: 'mixed', label: '混合', desc: '三种题型随机出', icon: Shuffle },
+  { key: 'mixed', label: '混合', desc: '五种题型随机出', icon: Shuffle },
   { key: 'cn2en', label: '中 → 英', desc: '看中文，选单词', icon: ListChecks },
   { key: 'en2cn', label: '英 → 中', desc: '看单词，选意思', icon: Languages },
   { key: 'dictation', label: '听写', desc: '听发音，拼单词', icon: Headphones },
+  { key: 'gap', label: '例句填空', desc: '看句子，填单词', icon: PencilLine },
+  { key: 'audio', label: '听音选词', desc: '听发音，选单词', icon: Ear },
 ]
 const MODE_KEY = 'ket-words-practice-mode'
 
@@ -53,8 +58,10 @@ interface Question {
 
 function buildQuestions(words: Word[], pool: Word[], mode: Mode): Question[] {
   return words.map((word) => {
-    const kind: Kind = mode === 'mixed' ? KINDS[Math.floor(Math.random() * KINDS.length)] : mode
-    if (kind === 'cn2en') return { word, kind, wordOptions: buildWordOptions(word, pool) }
+    let kind: Kind = mode === 'mixed' ? KINDS[Math.floor(Math.random() * KINDS.length)] : mode
+    // gap-fill needs a locatable target in the sentence
+    if (kind === 'gap' && !gapFor(word)) kind = 'dictation'
+    if (kind === 'cn2en' || kind === 'audio') return { word, kind, wordOptions: buildWordOptions(word, pool) }
     if (kind === 'en2cn') return { word, kind, defOptions: buildDefinitionOptions(word, pool) }
     return { word, kind }
   })
@@ -109,6 +116,7 @@ export default function Practice() {
   }
 
   const current = questions[index]
+  const judgeTyped = (text: string, w: Word, k: Kind) => (k === 'gap' ? matchesGap(text, w) : checkSpelling(text, w))
 
   const settle = (correct: boolean, pick?: number) => {
     if (answered || !current) return
@@ -120,7 +128,7 @@ export default function Practice() {
       updateProgress(current.word.id, false)
       addToErrorBank(current.word.id)
     }
-    if (current.kind !== 'dictation') tts.speak(baseWord(current.word.word))
+    if (current.kind !== 'dictation' && current.kind !== 'audio') tts.speak(baseWord(current.word.word))
   }
 
   const handleNext = () => {
@@ -251,23 +259,24 @@ export default function Practice() {
           )}
         </div>
       )}
-      {kind === 'dictation' && !answered && (
+      {kind === 'audio' && <AudioChoicePrompt key={word.id} word={word} revealed={!!answered} />}
+      {(kind === 'dictation' || kind === 'gap') && !answered && (
         <div className="mb-5 flex flex-col gap-5">
-          <DictationPrompt key={word.id} word={word} />
+          {kind === 'dictation' ? <DictationPrompt key={word.id} word={word} /> : <GapFillPrompt key={word.id} word={word} />}
           <input
             autoFocus
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && input.trim() && settle(checkSpelling(input, word))}
+            onKeyDown={(e) => e.key === 'Enter' && input.trim() && settle(judgeTyped(input, word, kind))}
             placeholder="输入英文单词..."
             className="glass-card h-16 w-full rounded-2xl px-4 text-center text-2xl font-medium font-mono tracking-widest outline-none transition-shadow placeholder:text-muted-foreground/50 focus:ring-3 focus:ring-primary/40"
           />
-          <Button variant="hero" className="h-14 w-full text-base" disabled={!input.trim()} onClick={() => settle(checkSpelling(input, word))}>
+          <Button variant="hero" className="h-14 w-full text-base" disabled={!input.trim()} onClick={() => settle(judgeTyped(input, word, kind))}>
             提交答案
           </Button>
         </div>
       )}
-      {kind === 'dictation' && answered && (
+      {(kind === 'dictation' || kind === 'gap') && answered && (
         <div
           className={`mb-5 rounded-[2rem] border p-7 text-center animate-fade-up ${
             correct ? 'border-green-500/30 bg-green-500/10' : 'border-red-500/30 bg-red-500/10'
@@ -289,7 +298,7 @@ export default function Practice() {
       )}
 
       {/* ── options ── */}
-      {kind === 'cn2en' && current.wordOptions && (
+      {(kind === 'cn2en' || kind === 'audio') && current.wordOptions && (
         <div className="mb-5 grid grid-cols-2 gap-3">
           {current.wordOptions.map((opt) => {
             const state = !answered ? 'idle' : opt.id === word.id ? 'correct' : opt.id === answered.pick ? 'wrong' : 'dim'

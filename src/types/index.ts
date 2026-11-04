@@ -44,7 +44,7 @@ export interface SessionResult {
   speak?: SpeakOutcome
   speakScore?: number | null // null = skipped / unscored
   spelled?: boolean
-  quiz?: 'spell' | 'dictation' // which prompt the spelling used (F4)
+  quiz?: 'spell' | 'dictation' | 'gap' // which prompt the spelling used (F4)
 }
 
 // Placement test outcome (F3): sampled accuracy projected onto the dictionary

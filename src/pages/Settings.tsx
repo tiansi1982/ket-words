@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import { useUserStore } from '@/store/userStore'
 import { useSettings } from '@/lib/use-settings'
 import { DEFAULT_SETTINGS, PASS_SCORE_MAX, PASS_SCORE_MIN, PASS_SCORE_STEP, PIN_LENGTH, isValidPin } from '@/lib/settings'
@@ -6,7 +6,9 @@ import { usePinGate } from '@/lib/use-pin-gate'
 import { BackButton } from '@/components/PageHeader'
 import { Button } from '@/components/ui/button'
 import { useNavigate } from 'react-router-dom'
-import { Target, Volume2, Mic, Lock, LockOpen, ClipboardList } from 'lucide-react'
+import { Target, Volume2, Mic, Lock, LockOpen, ClipboardList, Download, Upload } from 'lucide-react'
+import { mergeProfileData } from '@/services/sync'
+import { makeBackup, backupFilename, parseBackup, describeData } from '@/lib/backup'
 
 const GOALS = [10, 20, 30, 50]
 
@@ -46,13 +48,46 @@ const pinInputCls =
 // pass mark, and the device-level parent PIN.
 export default function Settings() {
   const navigate = useNavigate()
-  const { dailyGoal, setDailyGoal, parentPin, setParentPin, updateSettings, placement } = useUserStore()
+  const { dailyGoal, setDailyGoal, parentPin, setParentPin, updateSettings, placement, activeProfileId, profileList, getProfileData, applyProfileData } = useUserStore()
+  const profileName = profileList.find((p) => p.id === activeProfileId)?.name ?? ''
   const settings = useSettings()
   const { guard, dialog } = usePinGate()
 
   // Parent area stays unlocked for the rest of this visit once the PIN was entered
   const [unlocked, setUnlocked] = useState(false)
   const parentLocked = !!parentPin && !unlocked
+
+  // Backup (F9)
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [backupMsg, setBackupMsg] = useState('')
+  const exportBackup = () => {
+    const data = getProfileData(activeProfileId)
+    if (!data) return
+    const text = JSON.stringify(makeBackup(profileName, data), null, 2)
+    const blob = new Blob([text], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = backupFilename(profileName)
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    setBackupMsg(`已导出 ${a.download}`)
+  }
+  const importBackup = async (file: File) => {
+    const parsed = parseBackup(await file.text())
+    if (!parsed) {
+      setBackupMsg('这不是 KET 单词的备份文件')
+      return
+    }
+    guard(() => {
+      const local = getProfileData(activeProfileId)
+      if (!local) return
+      applyProfileData(activeProfileId, mergeProfileData(local, parsed.data))
+      setBackupMsg(`已合并${parsed.profileName ? `「${parsed.profileName}」` : ''}的备份：${describeData(parsed.data)}`)
+    })
+  }
 
   const [pinMode, setPinMode] = useState<'set' | 'change' | null>(null)
   const [pin1, setPin1] = useState('')
@@ -191,6 +226,34 @@ export default function Settings() {
         <p className="mt-3 text-[11px] leading-relaxed text-muted-foreground">
           PIN 只保存在这台设备上，用来防止孩子误触，不是安全措施。忘记 PIN 时只能清除浏览器数据重来，所以建议先绑定云同步。
         </p>
+      </Section>
+
+      <Section icon={<Download className="h-4 w-4" />} tile="bg-linear-to-br from-emerald-400 to-green-600" title="备份">
+        <p className="text-sm text-muted-foreground">
+          把「{profileName}」的学习进度导出成文件，换设备时导入即可；导入是合并，不会丢掉这台设备上的记录。
+          不想注册云同步账号的话用这个。
+        </p>
+        <div className="mt-3 flex gap-2">
+          <Button variant="hero" className="h-10 flex-1 gap-1.5" onClick={exportBackup}>
+            <Download className="h-4 w-4" /> 导出
+          </Button>
+          <Button variant="glass" className="h-10 flex-1 gap-1.5" onClick={() => fileInput.current?.click()}>
+            <Upload className="h-4 w-4" /> 导入
+          </Button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept="application/json,.json"
+            aria-label="选择备份文件"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0]
+              e.target.value = ''
+              if (f) void importBackup(f)
+            }}
+          />
+        </div>
+        {backupMsg && <p role="status" className="mt-2 text-xs font-medium text-muted-foreground">{backupMsg}</p>}
       </Section>
 
       <Section icon={<ClipboardList className="h-4 w-4" />} tile="bg-linear-to-br from-amber-400 to-orange-500" title="摸底测试">

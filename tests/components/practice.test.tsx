@@ -78,3 +78,29 @@ test('the chosen mode is remembered', () => {
   renderPractice()
   expect(screen.getByText('中 → 英').closest('button')!.getAttribute('aria-pressed')).toBe('true')
 })
+
+test('gap-fill and audio-choice kinds', async () => {
+  useUserStore.setState({ progress: {}, errorBank: [] })
+  renderPractice()
+  fireEvent.click(screen.getByText('例句填空'))
+  fireEvent.click(screen.getByText('开始 10 题'))
+  await screen.findByText('✏️ 例句填空')
+  // the blank shows the first letter only; the full word is not on screen
+  const blank = document.querySelector('.font-mono.tracking-widest.text-primary')!.textContent!
+  expect(blank).toMatch(/^[A-Za-z]_*$/)
+  fireEvent.click(screen.getByText('中文提示'))
+  fireEvent.change(screen.getByPlaceholderText('输入英文单词...'), { target: { value: 'zzzz' } })
+  fireEvent.click(screen.getByText('提交答案'))
+  await screen.findByText('❌')
+  cleanup()
+
+  renderPractice()
+  fireEvent.click(screen.getByText('听音选词'))
+  fireEvent.click(screen.getByText('开始 10 题'))
+  await screen.findByText('听发音 · 选出听到的单词')
+  expect(screen.getByLabelText('再听一遍')).toBeTruthy()
+  const options = screen.getAllByRole('button').filter((b) => b.className.includes('rounded-2xl border p-4'))
+  expect(options.length).toBe(4)
+  fireEvent.click(options[0])
+  expect(screen.getByText(/回答正确|正确答案是/)).toBeTruthy()
+})

@@ -128,3 +128,22 @@ test('a review mastered yesterday still gets the Chinese prompt, before any card
   await screen.findByText('✅')
   expect(useUserStore.getState().currentSession!.results![4]).toEqual({ spelled: true, quiz: 'spell' })
 })
+
+test('a far-along review fills the gap in its example sentence (F4)', async () => {
+  const s = useUserStore.getState()
+  useUserStore.setState({
+    progress: { 527: { wordId: 527, status: 'mastered', correctCount: 6, wrongCount: 0, lastStudied: Date.now() - 15 * 86400000, srsLevel: 3, dueDate: s.getTodayDate() } },
+    errorBank: [],
+    currentSession: { date: s.getTodayDate(), wordIds: [527], currentIndex: 0, completed: false },
+  })
+  renderStudy()
+  await screen.findByText('✏️ 例句填空')
+  expect(screen.getByText(/We/)).toBeTruthy()
+  expect(screen.queryByText(/flew/)).toBeNull()
+  spell('flew')
+  await screen.findByText('✅')
+  expect(useUserStore.getState().currentSession!.results![527]).toEqual({ spelled: true, quiz: 'gap' })
+  fireEvent.click(screen.getByText('完成学习 🎉'))
+  await screen.findByText('今日学习完成！')
+  expect(screen.getByLabelText('例句填空')).toBeTruthy()
+})

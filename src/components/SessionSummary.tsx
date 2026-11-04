@@ -100,6 +100,7 @@ export default function SessionSummary({ session }: { session: DailySession }) {
             </div>
             {r?.speak !== undefined && <SpeakChip outcome={r.speak} score={r.speakScore} />}
             {r?.quiz === 'dictation' && <span className="text-xs" title="听写" aria-label="听写">🎧</span>}
+            {r?.quiz === 'gap' && <span className="text-xs" title="例句填空" aria-label="例句填空">✏️</span>}
             {r?.spelled !== undefined &&
               (r.spelled ? (
                 <Check className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" aria-label="拼写正确" />
