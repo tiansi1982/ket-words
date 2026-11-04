@@ -28,7 +28,8 @@
 | `definition` | string | 中文释义（简洁，如 `"能够的"`） |
 | `example` | string | 英文例句（A2 难度，不超过 15 个词） |
 | `example_cn` | string | 例句中文翻译 |
-| `ipa` | string? | 英式 IPA 音标（如 `/əˈbaʊt/`），来自 dictionaryapi.dev（scripts/fetch-ipa.mjs），1405/1574 条有值，词组多缺失，缺失时 UI 不显示 |
+| `ipa` | string | 剑桥词典风格英音 IPA（如 `/əˈbaʊt/`），1574 条全部有值（F11，2026-11-04）：原 dictionaryapi.dev 数据经 `scripts/ipa-normalize.mjs` 规则化（去美音 ɹ/ɚ/oʊ、非卷舌化、BATH 词 ɑː 等），158 条手写在 `scripts/ipa-overrides.json`，词组由各部分拼接；校验脚本只接受英音符号集 |
+| `forms` | string[]? | 例句里用到的不规则变形（flew、teeth、looks after…），用于例句高亮与填空（R5）；只在例句确实用了变形时才有 |
 
 ---
 

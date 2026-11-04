@@ -53,5 +53,7 @@ npx wrangler d1 migrations apply ket-words-sync --local    # 本地 wrangler pag
 - `src/lib/word-aliases.ts` — 去重时移除的旧 ID → 保留 ID 映射（用户进度按 ID 存储，不能重编号）
 - `scripts/validate-words.mjs` — 词库校验（`npm test` 自动跑）
 - `scripts/generate-audio.py` — 用 edge-tts 为词和例句批量生成 `public/audio/*.mp3`，增量、可中断
-- `scripts/fetch-ipa.mjs` — 从 dictionaryapi.dev 增量抓取 IPA，缓存在 `scripts/ipa-cache.json`
-  （口音混杂，待 F11 统一重建）
+- `scripts/ipa-normalize.mjs` — 音标统一为剑桥词典风格英音（F11）：机械规则 + `scripts/ipa-overrides.json`
+  手写条目（优先）+ 词组由各部分拼接；加新词后把音标写进 overrides 再 `node scripts/ipa-normalize.mjs --write`，
+  校验脚本只接受英音符号集
+- `scripts/fetch-ipa.mjs` — （历史）从 dictionaryapi.dev 抓原始 IPA 到 `scripts/ipa-cache.json`，现只作参考
