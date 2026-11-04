@@ -3,8 +3,20 @@ import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 import path from 'path'
+import { execSync } from 'node:child_process'
+
+// Short build id for error reports: date + git sha when available
+const sha = (() => {
+  try {
+    return execSync('git rev-parse --short HEAD', { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim()
+  } catch {
+    return 'nogit'
+  }
+})()
+const build = `${new Date().toISOString().slice(0, 10)}-${sha}`
 
 export default defineConfig({
+  define: { __BUILD__: JSON.stringify(build) },
   plugins: [
     react(),
     tailwindcss(),

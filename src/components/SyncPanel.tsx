@@ -33,8 +33,9 @@ export default function SyncPanel() {
 
   const bind = async (mode: 'login' | 'signup') => {
     const name = username.trim()
-    if (name.length < 3 || password.length < 6) {
-      setError('用户名至少 3 位，密码至少 6 位')
+    const minPassword = mode === 'signup' ? 8 : 6
+    if (name.length < 3 || password.length < minPassword) {
+      setError(mode === 'signup' ? '用户名至少 3 位，密码至少 8 位' : '用户名至少 3 位，密码至少 6 位')
       return
     }
     const taken = Object.entries(syncAccounts).some(
@@ -141,7 +142,7 @@ export default function SyncPanel() {
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="密码（至少 6 位）"
+                placeholder="密码（注册至少 8 位）"
                 type="password"
                 className={inputCls}
               />

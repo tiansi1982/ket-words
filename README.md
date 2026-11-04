@@ -46,6 +46,11 @@ npx wrangler d1 migrations apply ket-words-sync --local    # 本地 wrangler pag
   `npx wrangler pages secret put <NAME> --project-name ket-words` 逐个设置。
 - `/api/soe-url` 已有令牌鉴权与每日配额（SPEC 第七章）；建议再在 Cloudflare 控制台给 `/api/*`
   加一条 WAF 速率限制规则兜底。
+- 前端未捕获错误会上报到 `/api/report`（E4，存 D1 `client_errors`，30 天）。查看最近 20 条：
+
+```bash
+npx wrangler d1 execute ket-words-sync --remote --command "SELECT datetime(at/1000,'unixepoch') t, message, url, build FROM client_errors ORDER BY at DESC LIMIT 20"
+```
 
 ## 数据
 

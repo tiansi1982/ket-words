@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from 'react-router-dom'
 import { useWordStore } from '@/store/wordStore'
 import { startAutoSync } from '@/services/sync'
 import { Button } from '@/components/ui/button'
+import { reportError } from '@/services/report'
 
 const Home = lazy(() => import('@/pages/Home'))
 const Study = lazy(() => import('@/pages/Study'))
@@ -35,6 +36,9 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   state = { error: null }
   static getDerivedStateFromError(error: Error) {
     return { error }
+  }
+  componentDidCatch(error: Error, info: { componentStack?: string | null }) {
+    reportError(error, info.componentStack ?? undefined)
   }
   render() {
     if (this.state.error) {

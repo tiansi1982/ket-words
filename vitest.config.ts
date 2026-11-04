@@ -7,6 +7,7 @@ import path from 'node:path'
 // The word-list validator runs separately first (npm test).
 export default defineConfig({
   plugins: [react()],
+  define: { __BUILD__: JSON.stringify('test') },
   resolve: { alias: { '@': path.resolve(__dirname, './src') } },
   test: {
     include: ['tests/*.mts', 'tests/**/*.test.{ts,tsx}'],
