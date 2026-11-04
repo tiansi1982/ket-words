@@ -4,7 +4,8 @@
 //   错误（退出码 1）：ID 不递增 / 必填字段缺失 / 词性与中文词性不一致 /
 //                    同拼写同词性重复 / 音标格式错误或是词典碎片 / 例句超 15 词 /
 //                    未知字段 / word-aliases.ts 与词库不一致 /
-//                    例句里找不到原形或 forms 变形 / forms 与例句或基础拼写不符
+//                    例句里找不到原形或 forms 变形 / forms 与例句或基础拼写不符 /
+//                    音标含剑桥英音符号集之外的字符（F11）
 //   警告（只打印）：  单词缺音标 / 预生成音频缺失或多余
 //
 // 用法：node scripts/validate-words.mjs [--strict]   --strict 时警告也算失败
@@ -39,6 +40,11 @@ const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 const audioFile = (text) => createHash('sha1').update(text, 'utf8').digest('hex').slice(0, 16) + '.mp3'
 
 const POS_CN = { adj: '形容词', adv: '副词', n: '名词', v: '动词', prep: '介词', 'phr v': '短语动词', exclam: '感叹词' }
+// 剑桥词典风格英音符号集（与 scripts/ipa-normalize.mjs 的 ALLOWED 一致）：
+// 辅音 p b t d k ɡ f v θ ð s z ʃ ʒ h m n ŋ l r w j（tʃ dʒ 由两个字符组成），
+// 元音 ɪ e æ ʌ ɒ ʊ ə i u 与 iː ɑː ɔː uː ɜː，双元音 eɪ aɪ ɔɪ əʊ aʊ ɪə eə ʊə，
+// 重音 ˈ ˌ、音节点 .、词组内空格。美音的 ɹ ɚ ɝ oʊ ɾ ɫ ʔ 等一律不允许
+const IPA_ALLOWED = new Set([...'pbtdkɡfvθðszʃʒhmnŋlrwjɪeæʌɒʊəiuɑɔɜaːˈˌ. '])
 const KNOWN_FIELDS = new Set(['id', 'word', 'pos', 'pos_cn', 'definition', 'example', 'example_cn', 'ipa', 'forms'])
 const REQUIRED = ['word', 'pos', 'pos_cn', 'definition', 'example', 'example_cn']
 
@@ -73,6 +79,11 @@ for (const w of words) {
   if (w.ipa !== undefined) {
     if (typeof w.ipa !== 'string' || !/^\/[^/[\]]+\/$/.test(w.ipa)) err(`${where}: 音标格式应为 /…/，现为 ${JSON.stringify(w.ipa)}`)
     else if (/^\/-|-\/$/.test(w.ipa)) err(`${where}: 音标是词典的前缀/后缀碎片 ${w.ipa}`)
+    else {
+      const bad = [...w.ipa.slice(1, -1)].filter((ch) => !IPA_ALLOWED.has(ch))
+      if (bad.length) err(`${where}: 音标含非英音/非剑桥符号 ${[...new Set(bad)].join(' ')}（${w.ipa}）；手写到 scripts/ipa-overrides.json 后运行 ipa-normalize.mjs --write`)
+      else if (/[^iɑɔuɜ]ː/.test(w.ipa)) err(`${where}: 长音只允许 iː ɑː ɔː uː ɜː（${w.ipa}）`)
+    }
   } else if (!baseWord(w.word).includes(' ')) {
     warn('单词缺音标', where)
   }
