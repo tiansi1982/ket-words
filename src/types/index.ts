@@ -47,6 +47,9 @@ export interface SessionResult {
   speakScore?: number | null // null = skipped / unscored
   spelled?: boolean
   quiz?: 'spell' | 'dictation' | 'gap' // which prompt the spelling used (F4)
+  // The word came up as a due review. Answering moves its due date, so this
+  // keeps the phase plan stable when the page is reopened mid-word (R03)
+  review?: boolean
 }
 
 // Placement test outcome (F3): sampled accuracy projected onto the dictionary
@@ -70,6 +73,9 @@ export interface ErrorSession {
   wordIds: number[]
   currentIndex: number
   cleared: number[] // ids that left the bank during this round
+  // What each word's read-aloud and spelling did this round, so reopening
+  // the page resumes the word instead of counting its answers twice (R03)
+  results?: Record<number, { speak?: SpeakOutcome; spelled?: boolean }>
 }
 
 export interface ProfileMeta {

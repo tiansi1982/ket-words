@@ -13,6 +13,20 @@ export function phasePlan(review: boolean, speech: boolean): Phase[] {
   return speech ? ['show', 'speak', 'quiz', 'result'] : ['show', 'quiz', 'result']
 }
 
+// Where a word's phases pick up when the page is reopened mid-word (R03),
+// from what was already recorded for it: after the spelling → its result
+// card; after the read-aloud → the phase that follows it; else the start.
+// Answers are counted when given, so replaying a phase would count twice.
+export function resumePhase(
+  plan: readonly string[],
+  done: { speak?: unknown; spelled?: unknown } | undefined
+): number {
+  if (done?.spelled !== undefined) return Math.max(0, plan.indexOf('result'))
+  const speak = plan.indexOf('speak')
+  if (done?.speak !== undefined && speak >= 0 && speak + 1 < plan.length) return speak + 1
+  return 0
+}
+
 // The further a review has come, the weaker the cue: a word mastered
 // yesterday gets the Chinese prompt, one past its first interval gets
 // dictation (hear → spell), one at the 15/30-day reviews fills the gap in

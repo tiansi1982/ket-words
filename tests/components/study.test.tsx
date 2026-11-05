@@ -105,7 +105,7 @@ test('a due review is tested first: dictation for a word past its first interval
   await screen.findByText('✅')
   expect(screen.getAllByText('above').length).toBeGreaterThan(0)
   const st = useUserStore.getState()
-  expect(st.currentSession!.results![3]).toEqual({ spelled: true, quiz: 'dictation' })
+  expect(st.currentSession!.results![3]).toEqual({ spelled: true, quiz: 'dictation', review: true })
   expect(st.progress[3].srsLevel).toBe(3)
   fireEvent.click(screen.getByText('完成学习 🎉'))
   await screen.findByText('今日学习完成！')
@@ -126,7 +126,7 @@ test('a review mastered yesterday still gets the Chinese prompt, before any card
   expect(screen.getByText(/复习 · 上次 1 天前/)).toBeTruthy()
   spell('accident')
   await screen.findByText('✅')
-  expect(useUserStore.getState().currentSession!.results![4]).toEqual({ spelled: true, quiz: 'spell' })
+  expect(useUserStore.getState().currentSession!.results![4]).toEqual({ spelled: true, quiz: 'spell', review: true })
 })
 
 test('a far-along review fills the gap in its example sentence (F4)', async () => {
@@ -142,8 +142,74 @@ test('a far-along review fills the gap in its example sentence (F4)', async () =
   expect(screen.queryByText(/flew/)).toBeNull()
   spell('flew')
   await screen.findByText('✅')
-  expect(useUserStore.getState().currentSession!.results![527]).toEqual({ spelled: true, quiz: 'gap' })
+  expect(useUserStore.getState().currentSession!.results![527]).toEqual({ spelled: true, quiz: 'gap', review: true })
   fireEvent.click(screen.getByText('完成学习 🎉'))
   await screen.findByText('今日学习完成！')
   expect(screen.getByLabelText('例句填空')).toBeTruthy()
+})
+
+// R03: answers are counted when given, so leaving on the result card and
+// coming back must resume there — not replay the word and count it again
+test('reopening after an answer resumes on the result card and never counts twice (R03)', async () => {
+  const s = useUserStore.getState()
+  useUserStore.setState({
+    progress: {},
+    errorBank: [],
+    dailyLog: {},
+    currentSession: { date: s.getTodayDate(), wordIds: [1, 2], currentIndex: 0, completed: false },
+  })
+  renderStudy()
+  await screen.findByText('有能力的')
+  fireEvent.click(screen.getByText('开始拼写 →'))
+  spell('able')
+  await screen.findByText('✅')
+  // the review's repro: back out and come back, three times
+  for (let i = 0; i < 3; i++) {
+    cleanup()
+    renderStudy()
+    await screen.findByText('✅')
+    expect(screen.queryByText('开始拼写 →')).toBeNull()
+    expect(screen.queryByPlaceholderText('输入英文单词...')).toBeNull()
+  }
+  const st = useUserStore.getState()
+  expect(st.progress[1].correctCount).toBe(1)
+  expect(st.progress[1].status).toBe('learning')
+  expect(st.dailyLog[s.getTodayDate()]).toBe(1)
+  expect(st.currentSession!.currentIndex).toBe(0)
+  fireEvent.click(screen.getByText('下一个 →'))
+  await screen.findByText('大约；关于')
+  expect(useUserStore.getState().currentSession!.currentIndex).toBe(1)
+
+  // a wrong answer resumes as wrong, without the (lost) typed text
+  fireEvent.click(screen.getByText('开始拼写 →'))
+  spell('abot')
+  await screen.findByText('❌')
+  cleanup()
+  renderStudy()
+  await screen.findByText('❌')
+  expect(screen.queryByText(/你输入的是/)).toBeNull()
+  expect(useUserStore.getState().progress[2].wrongCount).toBe(1)
+})
+
+test('a review answered then reopened keeps its review plan (R03)', async () => {
+  const s = useUserStore.getState()
+  useUserStore.setState({
+    progress: { 3: { wordId: 3, status: 'mastered', correctCount: 4, wrongCount: 0, lastStudied: Date.now() - 3 * 86400000, srsLevel: 2, dueDate: s.getTodayDate() } },
+    errorBank: [],
+    currentSession: { date: s.getTodayDate(), wordIds: [3], currentIndex: 0, completed: false },
+  })
+  renderStudy()
+  await screen.findByText('🎧 听写')
+  spell('above')
+  await screen.findByText('✅')
+  // answering moved the due date, so the word no longer looks due — the
+  // stored plan still says it was a review, and its level moved only once
+  cleanup()
+  renderStudy()
+  await screen.findByText('✅')
+  expect(screen.getByText('完成学习 🎉')).toBeTruthy()
+  expect(useUserStore.getState().progress[3].srsLevel).toBe(3)
+  fireEvent.click(screen.getByText('完成学习 🎉'))
+  await screen.findByText('今日学习完成！')
+  expect(screen.getByLabelText('听写')).toBeTruthy()
 })

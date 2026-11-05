@@ -93,3 +93,36 @@ test('an unfinished round resumes where it stopped', async () => {
   await screen.findByText('有能力的')
   expect(screen.getByText('错题练习 2/2')).toBeTruthy()
 })
+
+// R03: answers count when given, so reopening a round mid-word resumes the
+// word (even one that already left the bank) instead of counting it again
+test('reopening a round after an answer resumes on the result, counted once (R03)', async () => {
+  seed()
+  renderAt('/error-bank/practice')
+  await screen.findByText('大约；关于')
+  fireEvent.change(screen.getByPlaceholderText('输入英文单词...'), { target: { value: 'about' } })
+  fireEvent.click(screen.getByText('提交答案'))
+  await screen.findByText('已从错题本移除 ✓')
+  for (let i = 0; i < 2; i++) {
+    cleanup()
+    renderAt('/error-bank/practice')
+    // still this word's result, though it is no longer in the bank
+    await screen.findByText('已从错题本移除 ✓')
+    expect(screen.queryByPlaceholderText('输入英文单词...')).toBeNull()
+  }
+  expect(useUserStore.getState().progress[2].correctCount).toBe(1)
+  fireEvent.click(screen.getByText('下一个 →'))
+
+  await screen.findByText('有能力的')
+  fireEvent.change(screen.getByPlaceholderText('输入英文单词...'), { target: { value: 'abel' } })
+  fireEvent.click(screen.getByText('提交答案'))
+  await screen.findByText('❌')
+  cleanup()
+  renderAt('/error-bank/practice')
+  await screen.findByText('❌')
+  expect(useUserStore.getState().progress[1].wrongCount).toBe(2)
+  fireEvent.click(screen.getByText('看看结果 🎉'))
+  await screen.findByText('这轮练完了！')
+  // the resumed word still counts as cleared in the recap
+  expect(useUserStore.getState().errorSession!.cleared).toEqual([2])
+})

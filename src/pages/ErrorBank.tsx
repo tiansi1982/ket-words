@@ -8,6 +8,7 @@ import { useOnline } from '@/lib/use-online'
 import { useSettings } from '@/lib/use-settings'
 import { baseWord, displayWord, spellingHint } from '@/lib/word-utils'
 import { playSfx } from '@/lib/sfx'
+import { resumePhase } from '@/lib/exercise'
 import SentenceSpeak from '@/components/SentenceSpeak'
 import PageHeader from '@/components/PageHeader'
 import ProgressBar from '@/components/ProgressBar'
@@ -19,38 +20,38 @@ import type { SpeakOutcome } from '@/types'
 // Error-bank practice round (R9). Mirrors the daily-study flow: read the
 // sentence aloud first, then spell. A word leaves the bank only when both
 // parts pass in the same round. The round (ERROR_BATCH words, repeat
-// offenders first) lives in the store, so leaving mid-way resumes.
+// offenders first) lives in the store, so leaving mid-way resumes — down to
+// the phase within a word, since answers are counted when given (R03).
 type Phase = 'speak' | 'quiz' | 'result'
 
 const hasSpeech = recorder.isSupported()
-const initialPhase: Phase = hasSpeech ? 'speak' : 'quiz'
+const PLAN: Phase[] = hasSpeech ? ['speak', 'quiz', 'result'] : ['quiz', 'result']
 
 export default function ErrorBank() {
   const navigate = useNavigate()
   const {
     errorBank, errorSession, progress,
     updateProgress, recordSpeak, removeFromErrorBank,
-    startErrorRound, advanceErrorRound, pruneErrorSession, endErrorRound,
+    startErrorRound, advanceErrorRound, recordErrorResult, pruneErrorSession, endErrorRound,
   } = useUserStore()
   const { getWord, checkSpelling } = useWordStore()
   const online = useOnline()
   const settings = useSettings()
 
-  const [phase, setPhase] = useState<Phase>(initialPhase)
   const [input, setInput] = useState('')
-  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
-  const [speakFailed, setSpeakFailed] = useState(false)
 
   // On entry only: start a round if there is none, otherwise drop words that
   // left the bank meanwhile (cleared on another device) or vanished from the
-  // dictionary. Not re-run on changes — answering correctly removes the
-  // current word from the bank while its result card is still showing.
+  // dictionary — but keep words answered in this round, whose result card
+  // may still be due. Not re-run on changes — answering correctly removes
+  // the current word from the bank while its result card is still showing.
   useEffect(() => {
     const s = useUserStore.getState()
     if (!s.errorSession) {
       if (s.errorBank.length > 0) startErrorRound()
     } else if (s.errorSession.currentIndex < s.errorSession.wordIds.length) {
-      pruneErrorSession((id) => s.errorBank.includes(id) && getWord(id) !== undefined)
+      const answered = s.errorSession.results ?? {}
+      pruneErrorSession((id) => (s.errorBank.includes(id) || answered[id] !== undefined) && getWord(id) !== undefined)
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -60,11 +61,19 @@ export default function ErrorBank() {
   const currentWord = getWord(wordIds[index])
   const finished = total > 0 && index >= total
 
+  // What this word already got this round; the phase resumes after it and is
+  // keyed by word, so the next word starts at its own resume point
+  const wordId = currentWord?.id
+  const answered = wordId === undefined ? undefined : errorSession?.results?.[wordId]
+  const [phaseAt, setPhaseAt] = useState<{ wordId: number | undefined; phase: Phase } | null>(null)
+  const phase: Phase = phaseAt && phaseAt.wordId === wordId ? phaseAt.phase : PLAN[resumePhase(PLAN, answered)]
+  const setPhase = (p: Phase) => setPhaseAt({ wordId, phase: p })
+  const lastCorrect = answered?.spelled ?? null
+  const speakFailed = answered?.speak !== undefined && answered.speak !== 'passed'
+
   const resetCard = () => {
-    setPhase(initialPhase)
+    setPhaseAt(null)
     setInput('')
-    setLastCorrect(null)
-    setSpeakFailed(false)
   }
 
   // Scoring needs the network and there's no offline mode — block until back online
@@ -140,20 +149,22 @@ export default function ErrorBank() {
   if (!currentWord) return null
 
   // Skipped or scored below the bar: the word counts as missed this round, so
-  // the spelling that follows can no longer clear it out of the error bank
+  // the spelling that follows can no longer clear it out of the error bank.
+  // Each part is counted once per round.
   const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
-    recordSpeak(currentWord.id, score, outcome === 'passed')
-    if (outcome !== 'passed') {
-      setSpeakFailed(true)
-      updateProgress(currentWord.id, false)
+    if (answered?.speak === undefined) {
+      recordSpeak(currentWord.id, score, outcome === 'passed')
+      recordErrorResult(currentWord.id, { speak: outcome })
+      if (outcome !== 'passed') updateProgress(currentWord.id, false)
     }
     setPhase('quiz')
   }
 
   const handleSubmit = () => {
-    const correct = checkSpelling(input, currentWord)
-    setLastCorrect(correct)
     setPhase('result')
+    if (answered?.spelled !== undefined) return
+    const correct = checkSpelling(input, currentWord)
+    recordErrorResult(currentWord.id, { spelled: correct })
     updateProgress(currentWord.id, correct)
     if (correct && !speakFailed) removeFromErrorBank(currentWord.id)
     if (settings.sounds) void playSfx(correct ? 'correct' : 'wrong')
@@ -237,7 +248,7 @@ export default function ErrorBank() {
             {lastCorrect && speakFailed && (
               <p className="mt-2.5 text-sm font-semibold text-amber-600 dark:text-amber-400">拼写正确，但跟读没过关，仍留在错题本</p>
             )}
-            {!lastCorrect && (
+            {!lastCorrect && input && (
               <p className="mt-2.5 text-sm text-muted-foreground">
                 你输入的是：<span className="font-mono font-semibold text-destructive">{input}</span>
               </p>

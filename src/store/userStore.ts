@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings, PlacementRecord } from '@/types'
+import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings, PlacementRecord, SpeakOutcome } from '@/types'
 import { pruneSessionWords } from '@/lib/session'
 import { remapProfileData } from '@/lib/word-aliases'
 import { DEFAULT_DAILY_GOAL } from '@/lib/settings'
@@ -43,6 +43,8 @@ interface UserStore extends UserState {
   // Error-bank rounds (R9): ERROR_BATCH words per round, repeat offenders first
   startErrorRound: () => void
   advanceErrorRound: (cleared: boolean) => void
+  // How the current round's read-aloud / spelling went for a word (R03)
+  recordErrorResult: (wordId: number, patch: { speak?: SpeakOutcome; spelled?: boolean }) => void
   pruneErrorSession: (isKnown: (wordId: number) => boolean) => void
   endErrorRound: () => void
   getWordStatus: (wordId: number) => StudyStatus
@@ -493,6 +495,16 @@ export const useUserStore = create<UserStore>()(
               currentIndex: s.currentIndex + 1,
               cleared: cleared && id !== undefined && !s.cleared.includes(id) ? [...s.cleared, id] : s.cleared,
             },
+          }
+        }),
+
+      recordErrorResult: (wordId, patch) =>
+        set((state) => {
+          const s = state.errorSession
+          if (!s) return state
+          const results = s.results ?? {}
+          return {
+            errorSession: { ...s, results: { ...results, [wordId]: { ...(results[wordId] ?? {}), ...patch } } },
           }
         }),
 

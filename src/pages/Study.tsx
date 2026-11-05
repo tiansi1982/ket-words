@@ -7,7 +7,7 @@ import { useOnline } from '@/lib/use-online'
 import { useSettings } from '@/lib/use-settings'
 import { displayWord, spellingHint } from '@/lib/word-utils'
 import { wordStatus } from '@/lib/word-status'
-import { phasePlan, quizTypeFor, matchesGap } from '@/lib/exercise'
+import { phasePlan, quizTypeFor, matchesGap, resumePhase } from '@/lib/exercise'
 import SentenceSpeak, { ExampleSentence } from '@/components/SentenceSpeak'
 import SessionSummary from '@/components/SessionSummary'
 import DictationPrompt from '@/components/DictationPrompt'
@@ -62,18 +62,29 @@ export default function Study() {
   const finished = total > 0 && index >= total
 
   // The phase plan and quiz type are fixed when the word comes up: answering
-  // changes its progress, which must not reshuffle the phases mid-word (F4)
+  // changes its progress, which must not reshuffle the phases mid-word (F4).
+  // A word already answered in this session (page left and reopened) keeps
+  // the plan it came up with and resumes after what was answered (R03).
   const wordId = currentWord?.id
-  const { plan, quizType, review } = useMemo(() => {
-    const p = wordId === undefined ? undefined : useUserStore.getState().progress[wordId]
-    const review = wordStatus(p, getTodayDate()) === 'due'
+  const { plan, quizType, review, resumeAt } = useMemo(() => {
+    const st = useUserStore.getState()
+    const p = wordId === undefined ? undefined : st.progress[wordId]
+    const done = wordId === undefined ? undefined : st.currentSession?.results?.[wordId]
+    const review = done?.review ?? wordStatus(p, getTodayDate()) === 'due'
     const word = wordId === undefined ? undefined : getWord(wordId)
-    return { plan: phasePlan(review, hasSpeech), quizType: quizTypeFor(p, review, word), review }
+    const plan = phasePlan(review, hasSpeech)
+    return { plan, quizType: done?.quiz ?? quizTypeFor(p, review, word), review, resumeAt: resumePhase(plan, done) }
   }, [wordId, getTodayDate, getWord])
-  const [phaseIdx, setPhaseIdx] = useState(0)
+  // Phase within the current word, keyed by word so a different word (the
+  // next one, or a pruned session) starts at its own resume point
+  const [phaseAt, setPhaseAt] = useState<{ wordId: number | undefined; idx: number }>({ wordId, idx: resumeAt })
+  const phaseIdx = phaseAt.wordId === wordId ? phaseAt.idx : resumeAt
   const phase = plan[Math.min(phaseIdx, plan.length - 1)]
   const [input, setInput] = useState('')
-  const [lastCorrect, setLastCorrect] = useState<boolean | null>(null)
+  // What this word has already been credited with today
+  const answered = wordId === undefined ? undefined : currentSession?.results?.[wordId]
+  const lastCorrect = answered?.spelled ?? null
+  const reviewMark = review ? { review: true } : {}
 
   useEffect(() => {
     if (finished) completeDailySession()
@@ -87,23 +98,21 @@ export default function Study() {
 
   const nextWord = () => {
     advanceSession()
-    setPhaseIdx(0)
     setInput('')
-    setLastCorrect(null)
   }
   const nextPhase = () => {
-    if (phaseIdx + 1 < plan.length) setPhaseIdx(phaseIdx + 1)
+    if (phaseIdx + 1 < plan.length) setPhaseAt({ wordId, idx: phaseIdx + 1 })
     else nextWord()
   }
   const isLastWord = index + 1 >= total
   const lastPhase = phaseIdx + 1 >= plan.length
 
   // Skipped or scored below the bar: the word counts as missed so it lands in
-  // the error bank and stays in the to-learn pool
+  // the error bank and stays in the to-learn pool. Counted once per word.
   const handleSpeakDone = (outcome: SpeakOutcome, score: number | null) => {
-    if (currentWord) {
+    if (currentWord && answered?.speak === undefined) {
       recordSpeak(currentWord.id, score, outcome === 'passed')
-      recordSessionResult(currentWord.id, { speak: outcome, speakScore: score })
+      recordSessionResult(currentWord.id, { speak: outcome, speakScore: score, ...reviewMark })
       if (outcome !== 'passed') {
         updateProgress(currentWord.id, false)
         addToErrorBank(currentWord.id)
@@ -115,10 +124,10 @@ export default function Study() {
 
   const handleSubmit = () => {
     if (!currentWord) return
+    if (answered?.spelled !== undefined) return nextPhase() // already counted
     const correct = quizType === 'gap' ? matchesGap(input, currentWord) : checkSpelling(input, currentWord)
-    setLastCorrect(correct)
     updateProgress(currentWord.id, correct)
-    recordSessionResult(currentWord.id, { spelled: correct, quiz: quizType })
+    recordSessionResult(currentWord.id, { spelled: correct, quiz: quizType, ...reviewMark })
     if (!correct) addToErrorBank(currentWord.id)
     if (settings.sounds) void playSfx(correct ? 'correct' : 'wrong')
     if (settings.autoSpeak) speakWordAndExample(currentWord)
@@ -284,7 +293,7 @@ export default function Study() {
               <SpeakButton onClick={() => speakWordAndExample(currentWord)} />
             </div>
             {currentWord.ipa && <p className="font-mono text-sm text-muted-foreground">{currentWord.ipa}</p>}
-            {!lastCorrect && (
+            {!lastCorrect && input && (
               <p className="text-sm text-muted-foreground">
                 你输入的是：<span className="font-mono font-semibold text-destructive">{input}</span>
               </p>
