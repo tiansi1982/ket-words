@@ -45,9 +45,11 @@ syncAccounts    Record<id, SyncAccount>（云同步账号，按 profile 绑定�
 parentPin       家长 PIN（4 位数字字符串，本机级、不同步；null = 未设置，R10）
 ── 以下为当前孩子的 ProfileData，直接放在顶层（页面代码无感知）──
 dailyGoal       每日目标单词数，默认 20，可选 10/20/30/50
+dailyGoalSetAt  上次手动选择每日目标的时间戳；0 = 从没选过（默认值，同步时让给别的设备选过的目标，R18）
 currentSession  { date, wordIds[], currentIndex, completed, results{ wordId → { speak, speakScore, spelled } } }
 progress        Record<wordId, WordProgress>
 errorBank       number[]（错题 ID 列表）
+errorBankAt     Record<wordId, number>（每个词最近一次进出错题本的时间：+t 加入 / −t 移出，同步合并用，R02）
 dailyLog        Record<YYYY-MM-DD, number>（每天答题次数，用于打卡/统计）
 dailyRight      Record<YYYY-MM-DD, number>（每天答对次数，周报正确率，F6）
 achievementsSeen string[]（已庆祝过的徽章 id，F8）
@@ -77,24 +79,37 @@ placement       { date, correct, total, estimated } | null（最近一次摸底�
   家长创建）；密码 PBKDF2-SHA256 加盐存储；session token / user id 存在
   `syncAccounts[profileId]`；同一账号不能绑到本机两个孩子；删除档案时一并删除绑定
 - **云端数据**：每个账号一行 `profiles` 记录（`user_id` 主键），字段 `data`
-  （整份 ProfileData 快照 JSON）、`profile_name`、`client_updated_at`；
-  仅凭本人 session token 可读写
+  （整份 ProfileData 快照 JSON）、`profile_name`、`client_updated_at`、`version`
+  （每次写入 +1，迁移 `0004_profile_version.sql`）；仅凭本人 session token 可读写
 - **同步流程**：拉取 → 合并 → 应用本地 → 回推（`syncProfile`）。触发时机：应用启动
   （所有已绑定档案）、切换档案、本地学习数据变化后防抖 3 秒、网络恢复（online 事件）、
   面板「立即同步」按钮
-- **合并策略（无损，`mergeProfileData`，有测试）**：
+- **条件写入**（R01）：回推时带上拉取到的 `baseVersion`，服务端只在云端仍是该版本时写入
+  （`UPDATE … WHERE version = ?`；0 = 还没有快照或迁移前的老记录），否则返回 409；客户端收到 409
+  重新拉取、合并再推，最多拉 3 次。不带 `baseVersion` 的老客户端照旧直接覆盖
+- **失败与重试**（R05）：只有回推成功后才把这份快照记为"已同步"；后台同步失败（会话失效除外）
+  按 10 秒 / 30 秒 / 2 分钟 / 5 分钟 / 10 分钟退避重试，成功后清零；同步进行中又有学习数据变化时，
+  本次结束后补一次；只有学习数据变了才安排回推（同步状态本身的更新不会触发）
+- **合并策略（不丢学习记录，`mergeProfileData`，有测试）**：
   - `progress` 按词取 `lastStudied` 较新一方（相同取本地）
-  - `dailyLog` / `dailyRight` 按天取最大值；`errorBank` 取并集（某设备上已清掉的错题可能短暂回来，
-    再练对即再次清除——好过丢错题）；`achievementsSeen` 取并集
-  - `currentSession` 取今天且 `currentIndex` 较大的一方；`dailyGoal` 取本地；
-    `settings` 按键合并、本地优先；`errorSession` 取本地（没有时用远端）；`placement` 取日期较新的一方
+  - `dailyLog` / `dailyRight` 按天取最大值（两台设备**同时**学习时当天计数会少算，属已知取舍，R06）；
+    `achievementsSeen` 取并集
+  - `errorBank`（R02，`src/lib/error-bank.ts`）：每个词取 `errorBankAt` 里较新的一次变化——
+    这边练对移出、那边还是旧副本时保持移出；那边之后又答错则回来；时间相同保留在错题本里。
+    没有时间记录的老数据视为"时间 0 加入"，所以双方都是老数据时仍是并集。移出记录保留 60 天
+  - `errorSession` 只取本地，**从不用云端回填**（否则这边结束的轮次会被云端旧副本带回来，R02）
+  - `dailyGoal`（R18）：取 `dailyGoalSetAt` 较新的一方；双方都没选过时，非默认值优先于默认的 20
+    （新设备的默认值不会覆盖旧设备上选过的目标）
+  - `currentSession` 取今天且 `currentIndex` 较大的一方；`settings` 按键合并、本地优先；
+    `placement` 取日期较新的一方
 - **会话失效**（LeanCloud 错误码 211）：账号标记 `invalid`，UI 提示重新输入密码登录，
   本地数据不受影响；会话 **90 天过期**（按 `created_at`，E6），过期同样返回 211
 - **限次与密码**（E6）：登录每 IP 每小时 20 次、每用户名每小时 10 次，注册每 IP 每小时 10 次，
   超过返回 429 / 错误码 219（UI 提示"尝试次数太多"）；注册密码至少 8 位（登录仍接受老账号的 6 位）；
   注册前先查重名，插入失败才算数据库错误（500），不再一律当作重名
 - **UI**：「谁在学？」面板底部「云同步」区块，对当前档案操作：未绑定时登录/注册表单；
-  已绑定时显示账号、上次同步时间、「立即同步」与「解绑」（二次确认，解绑只删本机绑定，
+  已绑定时显示账号、上次同步时间（后台同步失败时显示"同步失败，稍后自动重试"、云图标变黄）、
+  「立即同步」与「解绑」（二次确认，解绑只删本机绑定，
   不删云端数据）
 
 ### WordProgress 结构
