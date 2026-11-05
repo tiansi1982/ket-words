@@ -47,14 +47,18 @@ class FakeMediaRecorder {
 
 let denyMic = false
 let lastStream: FakeStream
+// When set, getUserMedia waits for this (an open permission prompt)
+let gate: Promise<void> | null = null
 Object.defineProperty(globalThis, 'MediaRecorder', { value: FakeMediaRecorder, configurable: true })
 Object.defineProperty(globalThis, 'navigator', {
   value: {
     mediaDevices: {
       getUserMedia: async () => {
         if (denyMic) throw new Error('NotAllowedError')
-        lastStream = new FakeStream()
-        return lastStream
+        const stream = new FakeStream()
+        lastStream = stream
+        if (gate) await gate
+        return stream
       },
     },
   },
@@ -99,6 +103,51 @@ await assert.rejects(recorder.stop(), /not recording/)
   denyMic = true
   await assert.rejects(recorder.start(), /NotAllowedError/)
   denyMic = false
+}
+
+// ── 6. R07: cancelled while the permission prompt is open → mic released ──
+{
+  let allow!: () => void
+  gate = new Promise((r) => (allow = r))
+  const before = FakeMediaRecorder.last
+  const starting = recorder.start()
+  const pending = lastStream
+  recorder.cancel() // the page went away
+  allow()
+  await assert.rejects(starting, /cancelled/)
+  assert.equal(pending.tracks[0].stopped, true, 'late stream stopped, mic not left on')
+  assert.equal(FakeMediaRecorder.last, before, 'no recorder started on it')
+  gate = null
+}
+
+// ── 7. R07: a second start while the first waits supersedes it ──
+{
+  let allow!: () => void
+  gate = new Promise((r) => (allow = r))
+  const first = recorder.start()
+  const firstStream = lastStream
+  const second = recorder.start()
+  const secondStream = lastStream
+  allow()
+  await assert.rejects(first, /cancelled/)
+  assert.equal(await second, secondStream as unknown)
+  assert.equal(firstStream.tracks[0].stopped, true, 'first stream released')
+  assert.equal(secondStream.tracks[0].stopped, false, 'second one records')
+  assert.equal(FakeMediaRecorder.last.stream, secondStream)
+  await recorder.stop()
+  assert.equal(secondStream.tracks[0].stopped, true)
+  gate = null
+}
+
+// ── 8. a recorder that fails to start doesn't keep the mic ──
+{
+  const Orig = FakeMediaRecorder.prototype.start
+  FakeMediaRecorder.prototype.start = () => {
+    throw new Error('NotSupportedError')
+  }
+  await assert.rejects(recorder.start(), /NotSupportedError/)
+  assert.equal(lastStream.tracks[0].stopped, true, 'released on a failed start')
+  FakeMediaRecorder.prototype.start = Orig
 }
 
 console.log('✅ recorder assertions passed')

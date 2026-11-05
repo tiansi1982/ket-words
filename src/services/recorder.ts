@@ -27,6 +27,9 @@ class MediaRecorderService implements RecorderService {
   private recorder: MediaRecorder | null = null
   private stream: MediaStream | null = null
   private chunks: Blob[] = []
+  // Bumped by cancel() (and so by every start()): a start whose permission
+  // prompt resolves after that is stale (R07)
+  private gen = 0
 
   isSupported(): boolean {
     return typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
@@ -34,16 +37,29 @@ class MediaRecorderService implements RecorderService {
 
   async start(): Promise<MediaStream> {
     this.cancel()
+    const gen = this.gen
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-    this.stream = stream
-    const mimeType = pickMimeType()
-    const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
-    this.recorder = rec
-    this.chunks = []
-    rec.ondataavailable = (e) => {
-      if (e.data.size > 0) this.chunks.push(e.data)
+    // Cancelled (page left) or superseded (another start) while the
+    // permission prompt / device was busy: release this mic instead of
+    // recording on it unseen (R07)
+    if (gen !== this.gen) {
+      stream.getTracks().forEach((t) => t.stop())
+      throw new Error('recording cancelled')
     }
-    rec.start()
+    this.stream = stream
+    try {
+      const mimeType = pickMimeType()
+      const rec = new MediaRecorder(stream, mimeType ? { mimeType } : undefined)
+      this.recorder = rec
+      this.chunks = []
+      rec.ondataavailable = (e) => {
+        if (e.data.size > 0) this.chunks.push(e.data)
+      }
+      rec.start()
+    } catch (e) {
+      this.release() // a recorder that failed to start must not keep the mic
+      throw e
+    }
     return stream
   }
 
@@ -68,6 +84,7 @@ class MediaRecorderService implements RecorderService {
   }
 
   cancel(): void {
+    this.gen++
     const rec = this.recorder
     if (rec && rec.state !== 'inactive') {
       rec.onstop = null

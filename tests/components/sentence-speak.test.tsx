@@ -118,3 +118,36 @@ test('three unscored takes explain the problem and abort', async () => {
   fireEvent.click(screen.getByText('返回主界面'))
   expect(onAbort).toHaveBeenCalled()
 })
+
+// R07: the mic takes a moment to open (permission prompt, device warm-up)
+test('a second tap while the mic is opening is ignored (R07)', async () => {
+  const { recorder } = await import('@/services/recorder')
+  let open!: (s: MediaStream) => void
+  vi.mocked(recorder.start).mockClear().mockImplementationOnce(() => new Promise((r) => (open = r)))
+  vi.mocked(startSoeSession).mockResolvedValueOnce(scored(95))
+  setup()
+  const mic = screen.getByLabelText('开始录音')
+  fireEvent.click(mic)
+  fireEvent.click(mic)
+  expect(recorder.start).toHaveBeenCalledTimes(1)
+  expect(screen.getByText('正在打开麦克风…')).toBeTruthy()
+  expect((mic as HTMLButtonElement).disabled).toBe(true)
+  open({} as MediaStream)
+  await screen.findByLabelText('停止录音')
+  expect(startSoeSession).toHaveBeenCalledTimes(1)
+})
+
+test('leaving while the mic is opening starts no recording or scoring (R07)', async () => {
+  const { recorder } = await import('@/services/recorder')
+  let open!: (s: MediaStream) => void
+  vi.mocked(recorder.start).mockImplementationOnce(() => new Promise((r) => (open = r)))
+  vi.mocked(recorder.cancel).mockClear()
+  setup()
+  fireEvent.click(screen.getByLabelText('开始录音'))
+  cleanup() // the child navigated away
+  expect(recorder.cancel).toHaveBeenCalled()
+  open({} as MediaStream)
+  await new Promise((r) => setTimeout(r, 0))
+  expect(startSoeSession).not.toHaveBeenCalled()
+  expect(vi.mocked(recorder.cancel).mock.calls.length).toBeGreaterThanOrEqual(2)
+})

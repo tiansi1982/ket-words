@@ -175,6 +175,8 @@ class WsSoeSession implements SoeSession {
   private queue: ArrayBuffer[] = []
   private open = false
   private closed = false
+  // finish() was called before the socket opened: end once it does (R04)
+  private endPending = false
   private finalResult: SoeResult | null = null
   private onFinal: ((r: SoeResult | null) => void) | null = null
 
@@ -188,12 +190,10 @@ class WsSoeSession implements SoeSession {
 
   // Resolves null when streaming has begun, otherwise why it could not
   async start(): Promise<{ failure: SoeStartFailure; limit?: number } | null> {
-    const signed = await fetchSignedUrl(this.refText)
-    if (signed.failure) return { failure: signed.failure, limit: signed.limit }
-    if (this.closed) return { failure: 'error' }
-    const url = signed.url
-
-    // Tap the mic first so no audio is lost while the socket connects
+    // Tap the mic before anything goes over the network: the child starts
+    // reading as soon as the button says recording, and signing (plus, the
+    // first time, minting a device token) can take a while on a slow link.
+    // Captured audio queues until the socket opens (R04).
     const ctx = await acquireAudioContext()
     if (this.closed) return { failure: 'error' }
     this.source = ctx.createMediaStreamSource(this.stream)
@@ -206,13 +206,18 @@ class WsSoeSession implements SoeSession {
     this.source.connect(this.processor)
     this.processor.connect(ctx.destination) // required for onaudioprocess; output stays silent
 
-    const ws = new WebSocket(url)
+    const signed = await fetchSignedUrl(this.refText)
+    if (signed.failure) return { failure: signed.failure, limit: signed.limit }
+    if (this.closed) return { failure: 'error' }
+
+    const ws = new WebSocket(signed.url)
     this.ws = ws
     ws.binaryType = 'arraybuffer'
     ws.onopen = () => {
       this.open = true
       for (const chunk of this.queue) ws.send(chunk)
       this.queue = []
+      if (this.endPending) this.sendEnd()
     }
     ws.onmessage = (e) => {
       try {
@@ -260,6 +265,15 @@ class WsSoeSession implements SoeSession {
     this.queue = []
   }
 
+  private sendEnd(): void {
+    this.endPending = false
+    try {
+      this.ws?.send(JSON.stringify({ type: 'end' }))
+    } catch {
+      this.settle(this.finalResult)
+    }
+  }
+
   finish(): Promise<SoeResult | null> {
     return new Promise((resolve) => {
       if (this.closed || !this.ws) {
@@ -270,16 +284,16 @@ class WsSoeSession implements SoeSession {
       // Stop capturing but keep the socket for the verdict
       this.processor?.disconnect()
       this.source?.disconnect()
+      // One deadline covers connecting, flushing and the verdict
       const timer = setTimeout(() => this.settle(this.finalResult), FINAL_TIMEOUT_MS)
       this.onFinal = (r) => {
         clearTimeout(timer)
         resolve(r)
       }
-      try {
-        this.ws.send(JSON.stringify({ type: 'end' }))
-      } catch {
-        this.settle(this.finalResult)
-      }
+      // A short take on a slow link can end before the socket is even open:
+      // sending now would throw, so let onopen flush the audio and end (R04)
+      if (this.open) this.sendEnd()
+      else this.endPending = true
     })
   }
 

@@ -52,28 +52,33 @@ class AudioFirstTTS implements TTSService {
   private async run(texts: string[], lang: string, session: number): Promise<void> {
     for (const text of texts) {
       if (session !== this.session) return
-      const played = await this.playAudio(text)
+      const played = await this.playAudio(text, session)
       if (session !== this.session) return
       if (!played) await this.speakFallback(text, lang)
     }
   }
 
-  private async playAudio(text: string): Promise<boolean> {
+  private async playAudio(text: string, session: number): Promise<boolean> {
     // crypto.subtle 仅在安全上下文可用（https / localhost），否则直接走回退
     if (!crypto.subtle) return false
     const url = await audioUrlFor(text)
+    // 算哈希期间已被 stop() 或新的朗读取代：不再开始播放，否则会在孩子开始录音后才响起（R08）
+    if (session !== this.session) return true
+    let abort: (() => void) | null = null
     return new Promise<boolean>((resolve) => {
       const audio = new Audio(url)
       // _redirects 会把缺失文件重写成 index.html（200），解码失败同样触发 error
       audio.onended = () => resolve(true)
       audio.onerror = () => resolve(false)
-      this.abortCurrent = () => {
+      abort = () => {
         audio.pause()
         resolve(true) // 主动中止不算失败，不要再走 Web Speech 念一遍
       }
+      this.abortCurrent = abort
       audio.play().catch(() => resolve(false))
     }).finally(() => {
-      this.abortCurrent = null
+      // 只清理自己的取消句柄：此时它可能已属于新的一段朗读
+      if (this.abortCurrent === abort) this.abortCurrent = null
     })
   }
 

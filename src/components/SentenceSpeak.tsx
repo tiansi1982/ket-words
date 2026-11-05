@@ -84,6 +84,11 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
   const audioRef = useRef<HTMLAudioElement | null>(null)
   const stopTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined)
   const soePromise = useRef<Promise<SoeStart> | null>(null)
+  // The mic is being opened (permission prompt / device warm-up). A second
+  // tap meanwhile would open a second stream; leaving must not start one (R07)
+  const startingRef = useRef(false)
+  const [starting, setStarting] = useState(false)
+  const alive = useRef(true)
 
   const dropSoe = () => {
     void soePromise.current?.then((s) => s.session?.cancel())
@@ -91,8 +96,10 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
   }
 
   useEffect(() => {
+    alive.current = true
     return () => {
-      recorder.cancel()
+      alive.current = false
+      recorder.cancel() // also voids a start still waiting for the mic
       clearTimeout(stopTimer.current)
       void soePromise.current?.then((s) => s.session?.cancel())
     }
@@ -147,6 +154,7 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
       void handleStop()
       return
     }
+    if (startingRef.current) return
     // Still inside the tap: iOS needs the AudioContext unlocked here, before
     // the awaits below leave the gesture
     unlockAudioContext()
@@ -155,13 +163,23 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
     dropSoe()
     tts.stop()
     audioRef.current?.pause()
+    startingRef.current = true
+    setStarting(true)
     try {
       const stream = await recorder.start()
+      if (!alive.current) {
+        recorder.cancel()
+        return
+      }
       setState('recording')
       soePromise.current = startSoeSession(stream, word.example)
       stopTimer.current = setTimeout(handleStop, MAX_RECORD_MS)
     } catch {
-      setError('用不了麦克风，请在系统设置里允许本应用使用麦克风')
+      // Unmounted meanwhile: the start was cancelled on purpose
+      if (alive.current) setError('用不了麦克风，请在系统设置里允许本应用使用麦克风')
+    } finally {
+      startingRef.current = false
+      if (alive.current) setStarting(false)
     }
   }, [state, word, handleStop])
 
@@ -225,7 +243,7 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
         {/* Record button */}
         <button
           onClick={handleRecord}
-          disabled={blocked}
+          disabled={blocked || starting}
           aria-label={state === 'recording' ? '停止录音' : '开始录音'}
           className={`mx-auto mt-4 grid h-20 w-20 place-items-center rounded-full transition-all duration-200 disabled:opacity-40 ${
             state === 'recording'
@@ -253,7 +271,7 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
           </p>
         ) : (
           <p className="text-xs text-muted-foreground">
-            {error || (
+            {error || (starting ? '正在打开麦克风…' : (
               <>
                 {state === 'idle' && '点击麦克风，读出整个句子'}
                 {state === 'recording' && '正在录音…读完后再点一下停止'}
@@ -265,7 +283,7 @@ export default function SentenceSpeak({ word, passScore, continueLabel, skipLabe
                       : `😕 打分没成功（第 ${scoreFails}/${MAX_SCORE_FAILS} 次），可能是网络不太稳定，请再录一遍`
                 )}
               </>
-            )}
+            ))}
           </p>
         )}
         {state === 'recorded' && soeResult && !scoring && (
