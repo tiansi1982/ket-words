@@ -9,6 +9,9 @@ export const DEFAULT_SETTINGS: ProfileSettings = {
   sounds: true,
 }
 
+// Words per day until the child (or a parent) picks a goal
+export const DEFAULT_DAILY_GOAL = 20
+
 export const PASS_SCORE_MIN = 60
 export const PASS_SCORE_MAX = 100
 export const PASS_SCORE_STEP = 5

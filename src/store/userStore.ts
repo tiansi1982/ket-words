@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import type { UserState, WordProgress, StudyStatus, ProfileData, SyncAccount, SessionResult, ProfileSettings, PlacementRecord } from '@/types'
 import { pruneSessionWords } from '@/lib/session'
 import { remapProfileData } from '@/lib/word-aliases'
+import { DEFAULT_DAILY_GOAL } from '@/lib/settings'
 
 interface UserStore extends UserState {
   addProfile: (name: string) => void
@@ -106,7 +107,7 @@ function genId(): string {
 }
 
 const emptyProfileData = (): ProfileData => ({
-  dailyGoal: 20,
+  dailyGoal: DEFAULT_DAILY_GOAL,
   currentSession: null,
   progress: {},
   errorBank: [],
@@ -116,6 +117,8 @@ const emptyProfileData = (): ProfileData => ({
   placement: null,
   dailyRight: {},
   achievementsSeen: [],
+  errorBankAt: {},
+  dailyGoalSetAt: 0,
 })
 
 // The active profile's data as stored top-level in state
@@ -131,6 +134,8 @@ function snapshot(s: UserState): ProfileData {
     placement: s.placement ?? null,
     dailyRight: s.dailyRight ?? {},
     achievementsSeen: s.achievementsSeen ?? [],
+    errorBankAt: s.errorBankAt ?? {},
+    dailyGoalSetAt: s.dailyGoalSetAt ?? 0,
   }
 }
 
@@ -150,7 +155,7 @@ export const useUserStore = create<UserStore>()(
       profileData: {},
       syncAccounts: {},
       parentPin: null,
-      dailyGoal: 20,
+      dailyGoal: DEFAULT_DAILY_GOAL,
       currentSession: null,
       progress: {},
       errorBank: [],
@@ -160,6 +165,8 @@ export const useUserStore = create<UserStore>()(
       placement: null,
       dailyRight: {},
       achievementsSeen: [],
+      errorBankAt: {},
+      dailyGoalSetAt: 0,
 
       getTodayDate: () => todayStr(),
 
@@ -253,7 +260,7 @@ export const useUserStore = create<UserStore>()(
           return { profileData: { ...state.profileData, [profileId]: withDefaults(data) } }
         }),
 
-      setDailyGoal: (goal) => set({ dailyGoal: goal }),
+      setDailyGoal: (goal) => set({ dailyGoal: goal, dailyGoalSetAt: Date.now() }),
 
       updateSettings: (patch) => set((state) => ({ settings: { ...(state.settings ?? {}), ...patch } })),
 
@@ -397,17 +404,24 @@ export const useUserStore = create<UserStore>()(
           }
         }),
 
+      // Restamped even when already banked: getting it wrong again here must
+      // outrank a removal made meanwhile on another device (R02)
       addToErrorBank: (wordId) =>
         set((state) => ({
           errorBank: state.errorBank.includes(wordId)
             ? state.errorBank
             : [...state.errorBank, wordId],
+          errorBankAt: { ...(state.errorBankAt ?? {}), [wordId]: Date.now() },
         })),
 
       removeFromErrorBank: (wordId) =>
-        set((state) => ({
-          errorBank: state.errorBank.filter((id) => id !== wordId),
-        })),
+        set((state) => {
+          if (!state.errorBank.includes(wordId)) return state
+          return {
+            errorBank: state.errorBank.filter((id) => id !== wordId),
+            errorBankAt: { ...(state.errorBankAt ?? {}), [wordId]: -Date.now() },
+          }
+        }),
 
       markKnown: (wordIds) =>
         set((state) => {
@@ -431,7 +445,9 @@ export const useUserStore = create<UserStore>()(
             }
           }
           const ids = new Set(wordIds)
-          return { progress, errorBank: state.errorBank.filter((id) => !ids.has(id)) }
+          const errorBankAt = { ...(state.errorBankAt ?? {}) }
+          for (const id of state.errorBank) if (ids.has(id)) errorBankAt[id] = -now
+          return { progress, errorBank: state.errorBank.filter((id) => !ids.has(id)), errorBankAt }
         }),
 
       resetWords: (wordIds) =>

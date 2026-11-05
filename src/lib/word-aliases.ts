@@ -71,6 +71,19 @@ export function remapProfileData(data: ProfileData): ProfileData {
   }
   if (errorBank.length !== (data.errorBank ?? []).length) touched = true
 
+  // Error-bank stamps (R02) are keyed by word id too; when two old ids fold
+  // into one, the more recent change wins
+  let errorBankAt = data.errorBankAt
+  if (errorBankAt && Object.keys(errorBankAt).some((k) => Number(k) in WORD_ALIASES)) {
+    touched = true
+    const folded: Record<number, number> = {}
+    for (const [key, stamp] of Object.entries(errorBankAt)) {
+      const id = canonicalWordId(Number(key))
+      if (folded[id] === undefined || Math.abs(stamp) > Math.abs(folded[id])) folded[id] = stamp
+    }
+    errorBankAt = folded
+  }
+
   let currentSession = data.currentSession ?? null
   if (currentSession && currentSession.wordIds.some((id) => id in WORD_ALIASES)) {
     touched = true
@@ -81,5 +94,5 @@ export function remapProfileData(data: ProfileData): ProfileData {
   }
 
   if (!touched) return data
-  return { ...data, progress, errorBank, currentSession }
+  return { ...data, progress, errorBank, currentSession, ...(errorBankAt ? { errorBankAt } : {}) }
 }

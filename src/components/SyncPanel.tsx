@@ -114,7 +114,9 @@ export default function SyncPanel() {
         className="flex w-full items-center gap-2 rounded-2xl px-1 py-2 text-sm font-medium text-muted-foreground transition-colors hover:text-foreground"
       >
         {account ? (
-          <Cloud className={`h-4 w-4 ${account.invalid ? 'text-destructive' : 'text-primary'}`} />
+          <Cloud
+            className={`h-4 w-4 ${account.invalid ? 'text-destructive' : account.lastErrorAt ? 'text-amber-500' : 'text-primary'}`}
+          />
         ) : (
           <CloudOff className="h-4 w-4" />
         )}
@@ -123,7 +125,9 @@ export default function SyncPanel() {
           {account
             ? account.invalid
               ? '需要重新登录'
-              : lastSyncText(account.lastSyncAt)
+              : account.lastErrorAt
+                ? '同步失败，稍后自动重试'
+                : lastSyncText(account.lastSyncAt)
             : '未绑定账号'}
         </span>
       </button>

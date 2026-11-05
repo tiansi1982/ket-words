@@ -1,5 +1,6 @@
 import type { ProfileData } from '@/types'
 import { remapProfileData } from '@/lib/word-aliases'
+import { DEFAULT_DAILY_GOAL } from '@/lib/settings'
 
 // Backup file format (F9): one profile's data, so a family can move a child
 // between devices without a cloud account. Import merges (never discards).
@@ -22,6 +23,17 @@ export function backupFilename(profileName: string, now = new Date()): string {
   const safe = profileName.replace(/[\\/:*?"<>|\s]+/g, '_') || 'profile'
   const d = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   return `ket-words-${safe}-${d}.json`
+}
+
+// Error-bank stamps (R02): integer word ids → non-zero finite timestamps
+function parseStamps(raw: unknown): Record<number, number> {
+  const out: Record<number, number> = {}
+  if (!raw || typeof raw !== 'object') return out
+  for (const [k, v] of Object.entries(raw)) {
+    const id = Number(k)
+    if (Number.isInteger(id) && typeof v === 'number' && Number.isFinite(v) && v !== 0) out[id] = v
+  }
+  return out
 }
 
 // Parse a backup file; null when it isn't one. Only the learning fields are
@@ -48,7 +60,7 @@ export function parseBackup(text: string): { profileName: string; data: ProfileD
     progress[id] = { ...rec, wordId: id }
   }
   const data: ProfileData = {
-    dailyGoal: typeof d.dailyGoal === 'number' ? d.dailyGoal : 20,
+    dailyGoal: typeof d.dailyGoal === 'number' ? d.dailyGoal : DEFAULT_DAILY_GOAL,
     currentSession: d.currentSession ?? null,
     progress,
     errorBank: (d.errorBank ?? []).filter((id): id is number => Number.isInteger(id)),
@@ -58,6 +70,8 @@ export function parseBackup(text: string): { profileName: string; data: ProfileD
     placement: d.placement ?? null,
     dailyRight: d.dailyRight && typeof d.dailyRight === 'object' ? d.dailyRight : {},
     achievementsSeen: Array.isArray(d.achievementsSeen) ? d.achievementsSeen.filter((x): x is string => typeof x === 'string') : [],
+    errorBankAt: parseStamps(d.errorBankAt),
+    dailyGoalSetAt: typeof d.dailyGoalSetAt === 'number' && d.dailyGoalSetAt > 0 ? d.dailyGoalSetAt : 0,
   }
   return { profileName: typeof b.profileName === 'string' ? b.profileName : '', data: remapProfileData(data) }
 }

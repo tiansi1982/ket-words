@@ -86,7 +86,8 @@ assert.deepEqual(s().errorSession!.wordIds, [7], 'round restored with the profil
 const base = { dailyGoal: 20, currentSession: null, progress: {}, errorBank: [], dailyLog: {} }
 const round = { wordIds: [7], currentIndex: 0, cleared: [] }
 assert.deepEqual(mergeProfileData({ ...base, errorSession: round }, { ...base, errorSession: { ...round, currentIndex: 1 } }).errorSession, round)
-assert.deepEqual(mergeProfileData(base, { ...base, errorSession: round }).errorSession, round, 'remote fills when local has none')
+// R02: a round ended here must not come back from the cloud's older copy
+assert.equal(mergeProfileData(base, { ...base, errorSession: round }).errorSession, null, 'remote round never fills in')
 assert.equal(mergeProfileData(base, base).errorSession, null)
 
 console.log('✅ error round assertions passed')

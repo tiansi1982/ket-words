@@ -98,6 +98,12 @@ export interface ProfileData {
   errorSession?: ErrorSession | null // in-progress error-bank round (R9)
   placement?: PlacementRecord | null // last placement test (F3)
   achievementsSeen?: string[] // badge ids already celebrated (F8)
+  // When each word last entered (+t) or left (−t) the error bank, so the sync
+  // merge can tell a removal from a stale copy (R02, see lib/error-bank.ts)
+  errorBankAt?: Record<number, number>
+  // When the daily goal was last chosen; 0/absent = never set, i.e. the
+  // default, which loses to a goal chosen on another device (R18)
+  dailyGoalSetAt?: number
 }
 
 // Sync account bound to one profile (P3 cloud sync, /api/sync backend)
@@ -106,6 +112,7 @@ export interface SyncAccount {
   sessionToken: string
   userObjectId: string // server-side user id
   lastSyncAt?: number
+  lastErrorAt?: number // last background sync that failed (cleared on success); retried with backoff
   invalid?: boolean // session expired/revoked → needs re-login
 }
 
